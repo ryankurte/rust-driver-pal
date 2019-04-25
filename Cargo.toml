@@ -1,0 +1,11 @@
+[package]
+name = "embedded-spi"
+description = "Rust embedded SPI helper / testing package"
+repository = "https://github.com/ryankurte/rust-embedded-spi"
+version = "0.1.0"
+authors = ["Ryan Kurte <ryankurte@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+embedded-hal = "0.2.3-rc.1"
