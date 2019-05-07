@@ -2,7 +2,7 @@
 name = "embedded-spi"
 description = "Rust embedded SPI helper / testing package"
 repository = "https://github.com/ryankurte/rust-embedded-spi"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
