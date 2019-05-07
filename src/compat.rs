@@ -8,29 +8,48 @@ use embedded_hal::digital::v2::OutputPin;
 use crate::{Transactional};
 use crate::wrapper::Wrapper;
 
-impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
-where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
+/// Cursed marker trait provides `Conv` implementation for marked types
+pub trait Cursed {}
+
+/// Conv provides methods to convert rust types to and from c pointers
+pub trait Conv {
+    /// Generate a C void pointer that can later be re-cast into this object
+    fn to_c_ptr(&mut self) -> *mut libc::c_void;
+    /// Cast a C void pointer created by to_c_ptr back into this object
+    fn from_c_ptr<'a>(ctx: *mut libc::c_void) -> &'a mut Self;
+}
+
+impl <T> Conv for T where
+    T: Cursed
 {
     /// Generate a C void pointer that can be re-cast into this object
-    pub fn to_c_ptr(&mut self) -> *mut libc::c_void {
+    fn to_c_ptr(&mut self) -> *mut libc::c_void {
         self as *mut Self as *mut libc::c_void
     }
 
     /// Cast a C void pointer created by to_c_ptr back into this object
-    pub(crate) fn from_c<'a>(ctx: *mut libc::c_void) -> &'a mut Self {
+    fn from_c_ptr<'a>(ctx: *mut libc::c_void) -> &'a mut Self {
         unsafe {
             //assert!(ctx == ptr::null());
             let s = ctx as *mut Self;
             &mut *s
         }
     }
+}
+
+/// Mark Wrapper as a  c u r s e d  type to allow C coercion
+impl <Spi, SpiError, Pin, PinError> Cursed for Wrapper<Spi, SpiError, Pin, PinError> {}
+
+impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Pin: OutputPin<Error = PinError>,
+{
 
     /// C FFI compatible spi_write function for dependency injection
     pub extern fn spi_write(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
         // Coerce back into rust
-        let s = Self::from_c(ctx);
+        let s = Self::from_c_ptr(ctx);
 
         // Parse buffers
         let prefix: &[u8] = unsafe { core::slice::from_raw_parts(prefix, prefix_len as usize) };
@@ -49,7 +68,7 @@ where
     /// C FFI compatible spi_read function for dependency injection
     pub extern fn spi_read(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
         // Coerce back into rust
-        let s = Self::from_c(ctx);
+        let s = Self::from_c_ptr(ctx);
 
         // Parse buffers
         let prefix: &[u8] = unsafe { core::slice::from_raw_parts(prefix, prefix_len as usize) };
@@ -68,6 +87,19 @@ where
 
 #[cfg(test)]
 mod test {
-    // TODO: test for this  c u r s e d  thing require a viable mock Spi and Pin impl
-    // which are not yet part of embedded-hal-mock
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    struct Something(bool);
+    impl Cursed for Something {}
+
+    #[test]
+    fn test_compat() {
+        let mut s = Something(true);
+        let p = s.to_c_ptr();
+        let r = Something::from_c_ptr(p);
+
+        assert_eq!(&s, r);
+    }
+
 }
