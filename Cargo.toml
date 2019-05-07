@@ -2,10 +2,16 @@
 name = "embedded-spi"
 description = "Rust embedded SPI helper / testing package"
 repository = "https://github.com/ryankurte/rust-embedded-spi"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
+[features]
+mock = []
+compat = [ "libc" ]
+default = [ "mock", "compat" ]
+
 [dependencies]
 embedded-hal = "0.2.3-rc.1"
+libc = { version = "0.2.54", optional = true }
