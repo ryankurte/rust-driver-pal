@@ -2,15 +2,15 @@
 name = "embedded-spi"
 description = "Rust embedded FFI helper and testing package"
 repository = "https://github.com/ryankurte/rust-embedded-ffi"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
 [features]
 mock = []
-compat = [ "libc" ]
-default = [ "mock", "compat" ]
+ffi = [ "libc" ]
+default = [ "mock", "ffi" ]
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }

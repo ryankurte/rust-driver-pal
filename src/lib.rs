@@ -1,6 +1,6 @@
 //! Embedded SPI helper package
 //! This defines a higher level `Transactional` SPI interface, as well as an SPI `Transaction` enumeration
-//! that more closely map to the common uses of SPI peripherals.
+//! that more closely map to the common uses of SPI peripherals, as well as some other common driver helpers.
 //! 
 //! An `embedded_spi::wrapper::Wrapper` type is provided to wrap existing SPI implementations in this
 //! `embedded_spi::Transactional` interface, as well as a set of helpers for C compatibility enabled with
@@ -15,11 +15,11 @@ extern crate std;
 #[cfg(feature = "mock")]
 pub mod mock;
 
-#[cfg(feature = "compat")]
+#[cfg(feature = "ffi")]
 extern crate libc;
 
-#[cfg(feature = "compat")]
-pub mod compat;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 extern crate embedded_hal;
 
