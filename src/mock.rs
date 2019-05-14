@@ -6,10 +6,26 @@ use std::sync::{Arc, Mutex};
 use crate::{Transaction, Transactional};
 
 use embedded_hal::blocking::spi;
+use embedded_hal::digital::v2;
+
+/// Base mock type
+pub struct Mock {
+    inner: Arc<Mutex<Inner>>,
+    count: Id,
+}
+
+pub type Id = u32;
 
 /// Mock Transactional SPI implementation
-pub struct Mock {
-    inner: Arc<Mutex<Inner>>
+pub struct Spi {
+    id: Id,
+    inner: Arc<Mutex<Inner>>,
+}
+
+/// Mock Pin implementation
+pub struct Pin {
+    id: Id,
+    inner: Arc<Mutex<Inner>>,
 }
 
 /// Error type combining SPI and Pin errors for utility
@@ -30,6 +46,30 @@ pub enum MockTransaction {
 
     Write(Vec<u8>),
     Transfer((Vec<u8>, Vec<u8>)),
+
+    IsHigh(Id, bool),
+    IsLow(Id, bool),
+    SetHigh(Id),
+    SetLow(Id),
+}
+
+impl MockTransaction {
+
+    fn is_high(pin: &Pin, value: bool) -> Self {
+        MockTransaction::IsHigh(pin.id, value)
+    }
+
+    fn is_low(pin: &Pin, value: bool) -> Self {
+        MockTransaction::IsLow(pin.id, value)
+    }
+
+    fn set_high(pin: &Pin) -> Self {
+        MockTransaction::SetHigh(pin.id)
+    }
+
+    fn set_low(pin: &Pin) -> Self {
+        MockTransaction::SetLow(pin.id)
+    }
 }
 
 /// MockExec type for composing mock exec transactions
@@ -72,7 +112,7 @@ impl Inner {
 impl Mock {
     /// Create a new mock instance
     pub fn new() -> Self {
-        Self{ inner: Arc::new(Mutex::new(Inner{ index: 0, expected: Vec::new(), actual: Vec::new() })) } 
+        Self{ inner: Arc::new(Mutex::new(Inner{ index: 0, expected: Vec::new(), actual: Vec::new() })), count: 0 } 
     }
 
     /// Set expectations on the instance
@@ -94,6 +134,18 @@ impl Mock {
         *self.inner.lock().unwrap() = i;
     }
 
+    pub fn spi(&mut self) -> Spi {
+        let id = self.count;
+        self.count += 1;
+        Spi{ inner: self.inner.clone(), id }
+    }
+
+    pub fn pin(&mut self) -> Pin {
+        let id = self.count;
+        self.count += 1;
+        Pin{ inner: self.inner.clone(), id }
+    }
+
     /// Finalise expectations
     /// This will cause previous expectations to be evaluated
     pub fn finalise(&self) {
@@ -102,7 +154,7 @@ impl Mock {
     }
 }
 
-impl Transactional for Mock {
+impl Transactional for Spi {
     type Error = Error<(), ()>;
 
     /// Read data from a specified address
@@ -176,7 +228,7 @@ impl Transactional for Mock {
 }
 
 
-impl spi::Transfer<u8> for Mock 
+impl spi::Transfer<u8> for Spi 
 {
     type Error = Error<(), ()>;
 
@@ -207,7 +259,7 @@ impl spi::Transfer<u8> for Mock
     }
 }
 
-impl spi::Write<u8> for Mock  
+impl spi::Write<u8> for Spi  
 {
     type Error = Error<(), ()>;
     
@@ -229,6 +281,90 @@ impl spi::Write<u8> for Mock
     }
 }
 
+impl v2::InputPin for Pin {
+    type Error = ();
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // TODO: Any expectation checking here..?
+        let expected = &i.expected[index];
+        let v = match expected {
+            MockTransaction::IsHigh(_id, v) => *v,
+            _ => false,
+        };
+
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::IsHigh(self.id, v);
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(v)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // TODO: Any expectation checking here..?
+        let expected = &i.expected[index];
+        let v = match expected {
+            MockTransaction::IsLow(_id, v) => *v,
+            _ => false,
+        };
+
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::IsLow(self.id, v);
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(v)
+    }
+}
+
+
+impl v2::OutputPin for Pin {
+    type Error = ();
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // TODO: Any expectation checking here..?
+        let _expected = &i.expected[index];
+
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::SetHigh(self.id);
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // TODO: Any expectation checking here..?
+        let _expected = &i.expected[index];
+
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::SetLow(self.id);
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -240,6 +376,7 @@ mod test {
     #[test]
     fn test_transactional_read() {
         let mut m = Mock::new();
+        let mut s = m.spi();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
@@ -247,7 +384,7 @@ mod test {
         m.expect(vec![MockTransaction::SpiRead((prefix.clone(), data.clone()))]);
 
         let mut d = [0u8; 2];
-        m.spi_read(&prefix, &mut d).expect("read failure");
+        s.spi_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -257,6 +394,7 @@ mod test {
     #[should_panic]
     fn test_transactional_read_expect_write() {
         let mut m = Mock::new();
+        let mut s = m.spi();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
@@ -264,7 +402,7 @@ mod test {
         m.expect(vec![MockTransaction::SpiWrite((prefix.clone(), data.clone()))]);
 
         let mut d = [0u8; 2];
-        m.spi_read(&prefix, &mut d).expect("read failure");
+        s.spi_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -273,13 +411,14 @@ mod test {
     #[test]
     fn test_transactional_write() {
         let mut m = Mock::new();
+        let mut s = m.spi();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
         m.expect(vec![MockTransaction::SpiWrite((prefix.clone(), data.clone()))]);
 
-        m.spi_write(&prefix, &data).expect("write failure");
+        s.spi_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
@@ -288,13 +427,14 @@ mod test {
     #[should_panic]
     fn test_transactional_write_expect_read() {
         let mut m = Mock::new();
+        let mut s = m.spi();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
         m.expect(vec![MockTransaction::SpiRead((prefix.clone(), data.clone()))]);
 
-        m.spi_write(&prefix, &data).expect("write failure");
+        s.spi_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
@@ -304,12 +444,13 @@ mod test {
         use embedded_hal::blocking::spi::Write;
 
         let mut m = Mock::new();
+        let mut s = m.spi();
 
         let data = vec![0xAA, 0xBB];
 
         m.expect(vec![MockTransaction::Write(data.clone())]);
 
-        m.write(&data).expect("write failure");
+        s.write(&data).expect("write failure");
 
         m.finalise();
     }
@@ -319,18 +460,58 @@ mod test {
         use embedded_hal::blocking::spi::Transfer;
 
         let mut m = Mock::new();
+        let mut s = m.spi();
 
-        let prefix = vec![0xFF];
         let outgoing = vec![0xAA, 0xBB];
         let incoming = vec![0xCC, 0xDD];
 
         m.expect(vec![MockTransaction::Transfer((outgoing.clone(), incoming.clone()))]);
 
         let mut d = outgoing.clone();
-        m.transfer(&mut d).expect("read failure");
+        s.transfer(&mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&incoming, &d);
     }
 
+     #[test]
+    fn test_pins() {
+        use embedded_hal::digital::v2::{InputPin, OutputPin};
+
+        let mut m = Mock::new();
+        let mut p = m.pin();
+
+        m.expect(vec![
+            MockTransaction::is_high(&p, true),
+            MockTransaction::is_low(&p, false),
+            MockTransaction::set_high(&p),
+            MockTransaction::set_low(&p),
+        ]);
+
+        assert_eq!(true, p.is_high().unwrap());
+        assert_eq!(false, p.is_low().unwrap());
+
+        p.set_high().unwrap();
+        p.set_low().unwrap();
+
+        m.finalise();
+    }
+
+     #[test]
+     #[should_panic]
+    fn test_incorrect_pin() {
+        use embedded_hal::digital::v2::{InputPin, OutputPin};
+
+        let mut m = Mock::new();
+        let mut p1 = m.pin();
+        let mut p2 = m.pin();
+
+        m.expect(vec![
+            MockTransaction::is_high(&p1, true),
+        ]);
+
+        p2.is_high().unwrap();
+
+        m.finalise();
+    }
 }
