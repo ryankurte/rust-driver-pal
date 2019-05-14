@@ -3,7 +3,7 @@
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
 use embedded_hal::blocking::spi::{Transfer, Write};
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::{OutputPin, InputPin};
 
 use crate::{Transactional};
 use crate::wrapper::Wrapper;
@@ -38,12 +38,13 @@ impl <T> Conv for T where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl <Spi, SpiError, Pin, PinError> Cursed for Wrapper<Spi, SpiError, Pin, PinError> {}
+impl <Spi, SpiError, Output, Input, PinError> Cursed for Wrapper<Spi, SpiError, Output, Input, PinError> {}
 
-impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
+impl <Spi, SpiError, Output, Input, PinError> Wrapper<Spi, SpiError, Output, Input, PinError> 
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
 {
 
     /// C FFI compatible spi_write function for dependency injection

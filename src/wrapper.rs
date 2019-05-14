@@ -5,26 +5,33 @@
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::{OutputPin, InputPin};
 
-use crate::{Transaction, Transactional, Error};
+use crate::{Transaction, Transactional, PinState, Error};
 
 /// Wrapper wraps an Spi and Pin object to support transactions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Wrapper<Spi, SpiError, Pin, PinError> {
+pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
     spi: Spi,
-    cs: Pin,
+    cs: OutputPin,
+    busy: Option<InputPin>,
 
     pub(crate) err: Option<Error<SpiError, PinError>>,
 }
 
-impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError>  
+impl <Spi, SpiError, Output, Input, PinError> Wrapper<Spi, SpiError, Output, Input, PinError>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
-    
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
 {
     /// Create a new wrapper object with the provided SPI and pin
-    pub fn new(spi: Spi, cs: Pin) -> Self {
-        Self{spi, cs, err: None}
+    pub fn new(spi: Spi, cs: Output) -> Self {
+        Self{spi, cs, err: None, busy: None}
+    }
+
+    /// Add a busy input to the wrapper object
+    pub fn with_busy(s: &mut Self, busy: Input) -> &mut Self {
+        s.busy = Some(busy);
+        s
     }
 
     /// Write to a Pin instance while wrapping and storing the error internally
@@ -72,10 +79,11 @@ where
     }
 }
 
-impl <Spi, SpiError, Pin, PinError> Transactional for Wrapper<Spi, SpiError, Pin, PinError>  
+impl <Spi, SpiError, Output, Input, PinError> Transactional for Wrapper<Spi, SpiError, Output, Input, PinError>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
 {
     type Error = Error<SpiError, PinError>;
 
@@ -151,12 +159,29 @@ where
 
         res
     }
+
+    /// Check if the peripheral is currently busy
+    /// This will panic if not busy pin is bound
+    fn spi_busy(&mut self) -> Result<PinState, Self::Error> {
+        match &self.busy {
+            // TODO: should this be an error?
+            None => Ok(PinState::Low),
+            Some(b) => {
+                let v = b.is_high().map_err(|e| Error::Pin(e) )?;
+                match v {
+                    true => Ok(PinState::High),
+                    false => Ok(PinState::Low),
+                }
+            }
+        }
+    }
 }
 
-impl <Spi, SpiError, Pin, PinError> Transfer<u8> for Wrapper<Spi, SpiError, Pin, PinError>  
+impl <Spi, SpiError, Output, Input, PinError> Transfer<u8> for Wrapper<Spi, SpiError, Output, Input, PinError>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
     
 {
     type Error = SpiError;
@@ -166,11 +191,11 @@ where
     }
 }
 
-impl <Spi, SpiError, Pin, PinError> Write<u8> for Wrapper<Spi, SpiError, Pin, PinError>  
+impl <Spi, SpiError, Output, Input, PinError> Write<u8> for Wrapper<Spi, SpiError, Output, Input, PinError>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Pin: OutputPin<Error = PinError>,
-    
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
 {
     type Error = SpiError;
     

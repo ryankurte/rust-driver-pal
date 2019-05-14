@@ -42,6 +42,9 @@ pub trait Transactional {
 
     /// Exec allows 'Transaction' objects to be chained together into a single transaction
     fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
+
+    /// Busy returns the value of the busy input signal if available
+    fn spi_busy(&mut self) -> Result<PinState, Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions
@@ -63,4 +66,11 @@ pub enum Error<SpiError, PinError> {
     Spi(SpiError),
     Pin(PinError),
     Aborted,
+}
+
+/// PinState enum used for busy indication
+#[derive(Debug, Clone, PartialEq)]
+pub enum PinState {
+    Low,
+    High
 }

@@ -3,7 +3,7 @@ use std::{panic, println, vec};
 use std::vec::Vec;
 use std::sync::{Arc, Mutex};
 
-use crate::{Transaction, Transactional, Error};
+use crate::{Transaction, Transactional, PinState, Error};
 
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2;
@@ -46,6 +46,7 @@ pub enum MockTransaction {
     SpiWrite(Id, Vec<u8>, Vec<u8>),
     SpiRead(Id, Vec<u8>, Vec<u8>),
     SpiExec(Id, Vec<MockExec>),
+    SpiBusy(Id, PinState),
 
     Write(Id, Vec<u8>),
     Transfer(Id, Vec<u8>, Vec<u8>),
@@ -60,16 +61,24 @@ pub enum MockTransaction {
 
 impl MockTransaction {
 
-    pub fn spi_write<B>(spi: &Spi, prefix: B, outgoing: B) -> Self 
-    where B: AsRef<[u8]>
+    pub fn spi_write<A, B>(spi: &Spi, prefix: A, outgoing: B) -> Self 
+    where 
+        A: AsRef<[u8]>,
+        B: AsRef<[u8]>,
     {
         MockTransaction::SpiWrite(spi.id, prefix.as_ref().to_vec(), outgoing.as_ref().to_vec())
     }
 
-    pub fn spi_read<B>(spi: &Spi, prefix: B, incoming: B) -> Self 
-    where B: AsRef<[u8]>
+    pub fn spi_read<A, B>(spi: &Spi, prefix: A, incoming: B) -> Self 
+    where 
+        A: AsRef<[u8]>,
+        B: AsRef<[u8]>,
     {
         MockTransaction::SpiRead(spi.id, prefix.as_ref().to_vec(), incoming.as_ref().to_vec())
+    }
+
+    pub fn spi_busy(spi: &Spi, value: PinState) -> Self {
+        MockTransaction::SpiBusy(spi.id, value)
     }
 
     pub fn write<B>(spi: &Spi, outgoing: B) -> Self 
@@ -79,7 +88,8 @@ impl MockTransaction {
     }
 
     pub fn transfer<B>(spi: &Spi, outgoing: B, incoming: B) -> Self 
-    where B: AsRef<[u8]>
+    where 
+        B: AsRef<[u8]>,
     {
         MockTransaction::Transfer(spi.id, outgoing.as_ref().to_vec(), incoming.as_ref().to_vec())
     }
@@ -256,6 +266,21 @@ impl Transactional for Spi {
         i.index += 1;
 
         Ok(())
+    }
+
+    /// Check peripheral busy status
+    fn spi_busy(&mut self) -> Result<PinState, Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        let state = match &i.expected.get(index) {
+            Some(MockTransaction::SpiBusy(_id, state)) => state.clone(),
+            _ => PinState::Low,
+        };
+
+        i.actual.push(MockTransaction::SpiBusy(self.id, state.clone()));
+
+        Ok(state)
     }
 }
 
