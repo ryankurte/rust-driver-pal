@@ -1,5 +1,5 @@
 
-use std::{panic, println, vec};
+use std::{panic, vec};
 use std::vec::Vec;
 use std::sync::{Arc, Mutex};
 
@@ -171,8 +171,6 @@ impl Mock {
             expected,
             actual,
         };
-
-        println!("i: {:?}", i);
         
         *self.inner.lock().unwrap() = i;
     }
@@ -214,10 +212,12 @@ impl Transactional for Spi {
 
         // Copy read data from expectation
         match &i.expected.get(index) {
-            Some(MockTransaction::SpiRead(_id, _outgoing, incoming)) => data.copy_from_slice(&incoming),
+            Some(MockTransaction::SpiRead(_id, _outgoing, incoming)) => {
+                data.copy_from_slice(&incoming);
+            },
             _ => (),
         };
-                       
+
         // Save actual call
         i.actual.push(MockTransaction::SpiRead(self.id, prefix.into(), data.into()));
         
@@ -279,6 +279,8 @@ impl Transactional for Spi {
         };
 
         i.actual.push(MockTransaction::SpiBusy(self.id, state.clone()));
+
+        i.index += 1;
 
         Ok(state)
     }

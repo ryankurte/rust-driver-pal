@@ -13,5 +13,5 @@ compat = [ "libc" ]
 default = [ "mock", "compat" ]
 
 [dependencies]
-embedded-hal = { vertsion = "0.2.3", features = ["unproven"] }
+embedded-hal = { version = "0.2.3", features = ["unproven"] }
 libc = { version = "0.2.54", optional = true }
