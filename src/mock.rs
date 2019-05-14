@@ -3,7 +3,7 @@ use std::{panic, println, vec};
 use std::vec::Vec;
 use std::sync::{Arc, Mutex};
 
-use crate::{Transaction, Transactional};
+use crate::{Transaction, Transactional, Error};
 
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2;
@@ -38,13 +38,6 @@ pub struct Delay {
     inner: Arc<Mutex<Inner>>,
 }
 
-/// Error type combining SPI and Pin errors for utility
-#[derive(Debug, Clone, PartialEq)]
-pub enum Error<SpiError, PinError> {
-    Spi(SpiError),
-    Pin(PinError),
-    Aborted,
-}
 
 /// Mock transaction type for setting and checking expectations
 #[derive(Clone, Debug, PartialEq)]

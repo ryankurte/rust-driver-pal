@@ -38,17 +38,16 @@ impl <T> Conv for T where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl <Spi, Pin, Error> Cursed for Wrapper<Spi, Pin, Error> {}
+impl <Spi, SpiError, Pin, PinError> Cursed for Wrapper<Spi, SpiError, Pin, PinError> {}
 
-impl <Spi, SpiError, Pin, PinError, Error> Wrapper<Spi, Pin, Error> 
+impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Pin: OutputPin<Error = PinError>,
-    Error: From<PinError> + From<SpiError>,
 {
 
     /// C FFI compatible spi_write function for dependency injection
-    pub extern fn spi_write(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
+    pub extern fn ffi_spi_write(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
         // Coerce back into rust
         let s = Self::from_c_ptr(ctx);
 
@@ -67,7 +66,7 @@ where
     }
 
     /// C FFI compatible spi_read function for dependency injection
-    pub extern fn spi_read(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
+    pub extern fn ffi_spi_read(ctx: *mut libc::c_void, prefix: *mut u8, prefix_len: u16, data: *mut u8, data_len: u16) -> isize {
         // Coerce back into rust
         let s = Self::from_c_ptr(ctx);
 

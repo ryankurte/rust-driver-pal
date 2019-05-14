@@ -55,3 +55,12 @@ pub enum Transaction<'a> {
     // This behaviour is actually just the same as Read
     //Transfer((&'a [u8], &'a mut [u8]))
 }
+
+
+/// Error type combining SPI and Pin errors for utility
+#[derive(Debug, Clone, PartialEq)]
+pub enum Error<SpiError, PinError> {
+    Spi(SpiError),
+    Pin(PinError),
+    Aborted,
+}
