@@ -210,8 +210,8 @@ impl Transactional for Spi {
         let index = i.index;
 
         // Copy read data from expectation
-        match &i.expected[index] {
-            MockTransaction::SpiRead(_id, _outgoing, incoming) => data.copy_from_slice(&incoming),
+        match &i.expected.get(index) {
+            Some(MockTransaction::SpiRead(_id, _outgoing, incoming)) => data.copy_from_slice(&incoming),
             _ => (),
         };
                        
@@ -278,8 +278,8 @@ impl spi::Transfer<u8> for Spi
         let incoming: Vec<_> = data.into();
 
         // Copy read data from expectation
-        match &i.expected[index] {
-            MockTransaction::Transfer(_id, _outgoing, incoming) => {
+        match &i.expected.get(index) {
+            Some(MockTransaction::Transfer(_id, _outgoing, incoming)) => {
                 if incoming.len() == data.len() {
                     data.copy_from_slice(&incoming);
                 }
@@ -321,10 +321,9 @@ impl v2::InputPin for Pin {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
-        // TODO: Any expectation checking here..?
-        let expected = &i.expected[index];
-        let v = match expected {
-            MockTransaction::IsHigh(_id, v) => *v,
+        // Fetch expectation if found
+        let v = match &i.expected.get(index) {
+            Some(MockTransaction::IsHigh(_id, v)) => *v,
             _ => false,
         };
 
@@ -341,10 +340,9 @@ impl v2::InputPin for Pin {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
-        // TODO: Any expectation checking here..?
-        let expected = &i.expected[index];
-        let v = match expected {
-            MockTransaction::IsLow(_id, v) => *v,
+        // Fetch expectation if found
+        let v = match &i.expected.get(index) {
+            Some(MockTransaction::IsLow(_id, v)) => *v,
             _ => false,
         };
 
