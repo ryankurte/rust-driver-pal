@@ -26,7 +26,7 @@ extern crate embedded_hal;
 
 /// Transaction trait provides higher level, transaction-based, SPI constructs
 /// These are executed in a single SPI transaction (without de-asserting CS).
-trait Transactional {
+pub trait Transactional {
     type Error;
 
     /// Read writes the prefix buffer then reads into the input buffer

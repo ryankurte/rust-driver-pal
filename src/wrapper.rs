@@ -3,7 +3,7 @@
 //! and `embedded_hal::digital::v2::OutputPin` to provide a transactional API for SPI transactions.
 
 use embedded_hal::blocking::spi::{Transfer, Write};
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::{OutputPin, InputPin};
 
 use crate::{Transaction, Transactional, Error};
 
@@ -21,8 +21,43 @@ where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Pin: OutputPin<Error = PinError>,
 {
+    /// Create a new wrapper object with the provided SPI and pin
     pub fn new(spi: Spi, cs: Pin) -> Self {
         Self{spi, cs, err: None}
+    }
+
+    /// Write to a Pin instance while wrapping and storing the error internally
+    /// This returns 0 for success or -1 for errors
+    pub fn pin_write<P>(&mut self, pin: &mut P, value: bool) -> i32 
+    where P: OutputPin<Error = PinError>
+    {
+        let r = match value {
+            true => pin.set_high(),
+            false => pin.set_low(),
+        };
+        match r {
+            Ok(_) => 0,
+            Err(e) => {
+                self.err = Some(Error::Pin(e));
+                -1
+            }
+        }
+    }
+
+    /// Write to a Pin instance while wrapping and storing the error internally
+    /// This returns 0 for low, 1 for high, and -1 for errors
+    pub fn pin_read<P>(&mut self, pin: &mut P) -> i32 
+    where P: InputPin<Error = PinError>
+    {
+        let r = pin.is_high();
+        match r {
+            Ok(true) => 1,
+            Ok(false) => 0,
+            Err(e) => {
+                self.err = Some(Error::Pin(e));
+                -1
+            }
+        }
     }
     
     /// Check the internal error state of the peripheral

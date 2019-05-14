@@ -8,7 +8,7 @@ use embedded_hal::digital::v2::OutputPin;
 use crate::{Transactional};
 use crate::wrapper::Wrapper;
 
-/// Cursed marker trait provides `Conv` implementation for marked types
+/// Mark traits as cursed to provide a `Conv` implementation for FFI use
 pub trait Cursed {}
 
 /// Conv provides methods to convert rust types to and from c pointers
