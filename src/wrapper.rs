@@ -12,6 +12,7 @@ use crate::{Transaction, Transactional, PinState, Error};
 pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
     spi: Spi,
     cs: OutputPin,
+
     busy: Option<InputPin>,
 
     pub(crate) err: Option<Error<SpiError, PinError>>,
@@ -29,9 +30,8 @@ where
     }
 
     /// Add a busy input to the wrapper object
-    pub fn with_busy(s: &mut Self, busy: Input) -> &mut Self {
-        s.busy = Some(busy);
-        s
+    pub fn with_busy(&mut self, busy: Input) {
+        self.busy = Some(busy);
     }
 
     /// Write to a Pin instance while wrapping and storing the error internally
