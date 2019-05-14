@@ -5,21 +5,22 @@
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::{OutputPin, InputPin};
 
-use crate::{Transaction, Transactional, Error};
+use crate::{Transaction, Transactional};
 
 /// Wrapper wraps an Spi and Pin object to support transactions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Wrapper<Spi, SpiError, Pin, PinError> {
+pub struct Wrapper<Spi, Pin, Error> {
     spi: Spi,
     cs: Pin,
 
-    pub(crate) err: Option<Error<SpiError, PinError>>,
+    pub(crate) err: Option<Error>,
 }
 
-impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
+impl <Spi, SpiError, Pin, PinError, Error> Wrapper<Spi, Pin, Error>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Pin: OutputPin<Error = PinError>,
+    Error: From<PinError> + From<SpiError>,
 {
     /// Create a new wrapper object with the provided SPI and pin
     pub fn new(spi: Spi, cs: Pin) -> Self {
@@ -38,7 +39,7 @@ where
         match r {
             Ok(_) => 0,
             Err(e) => {
-                self.err = Some(Error::Pin(e));
+                self.err = Some(PinError::into(e));
                 -1
             }
         }
@@ -54,7 +55,7 @@ where
             Ok(true) => 1,
             Ok(false) => 0,
             Err(e) => {
-                self.err = Some(Error::Pin(e));
+                self.err = Some(PinError::into(e));
                 -1
             }
         }
@@ -63,7 +64,7 @@ where
     /// Check the internal error state of the peripheral
     /// This provides a mechanism to retrieve the rust error if an error occurs
     /// during an FFI call, and clears the internal error state
-    pub fn check_error(&mut self) -> Result<(), Error<SpiError, PinError>> {
+    pub fn check_error(&mut self) -> Result<(), Error> {
         match self.err.take() {
             Some(e) => Err(e),
             None => Ok(())
@@ -71,18 +72,19 @@ where
     }
 }
 
-impl <Spi, SpiError, Pin, PinError> Transactional for Wrapper<Spi, SpiError, Pin, PinError> 
+impl <Spi, SpiError, Pin, PinError, Error> Transactional for Wrapper<Spi, Pin, Error>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Pin: OutputPin<Error = PinError>,
+    Error: From<PinError> + From<SpiError>,
 {
-    type Error = Error<SpiError, PinError>;
+    type Error = Error;
 
     /// Read data from a specified address
     /// This consumes the provided input data array and returns a reference to this on success
-    fn read<'a>(&mut self, prefix: &[u8], mut data: &'a mut [u8]) -> Result<(), Error<SpiError, PinError>> {
+    fn read<'a>(&mut self, prefix: &[u8], mut data: &'a mut [u8]) -> Result<(), Self::Error> {
         // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
         // Write command
         let mut res = self.spi.write(&prefix);
@@ -93,11 +95,11 @@ where
         }
 
         // Clear CS
-        self.cs.set_high().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_high().map_err(|e| -> Error { PinError::into(e) })?;
 
         // Return result (contains returned data)
         match res {
-            Err(e) => Err(Error::Spi(e)),
+            Err(e) => Err( SpiError::into(e) ),
             Ok(_) => Ok(()),
         }
     }
@@ -105,7 +107,7 @@ where
     /// Write data to a specified register address
     fn write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
         // Write command
         let mut res = self.spi.write(&prefix);
@@ -116,11 +118,11 @@ where
         }
 
         // Clear CS
-        self.cs.set_high().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_high().map_err(|e| -> Error { PinError::into(e) })?;
 
         // Return result
         match res {
-            Err(e) => Err(Error::Spi(e)),
+            Err(e) => Err( SpiError::into(e) ),
             Ok(_) => Ok(()),
         }
     }
@@ -130,7 +132,7 @@ where
         let mut res = Ok(());
 
         // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
         for i in 0..transactions.len() {
             let mut t = &mut transactions[i];
@@ -138,7 +140,7 @@ where
             res = match &mut t {
                 Transaction::Write(d) => self.spi.write(d),
                 Transaction::Read(d) =>  self.spi.transfer(d).map(|_r| () ),
-            }.map_err(|e| Error::Spi(e) );
+            }.map_err(|e| SpiError::into(e) );
 
             if res.is_err() {
                 break;
@@ -146,7 +148,7 @@ where
         }
 
         // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e) )?;
+        self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
         res
     }

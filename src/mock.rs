@@ -3,11 +3,19 @@ use std::{panic, println, vec};
 use std::vec::Vec;
 use std::sync::{Arc, Mutex};
 
-use crate::{Transaction, Transactional, Error};
+use crate::{Transaction, Transactional};
 
 /// Mock Transactional SPI implementation
 pub struct Mock {
     inner: Arc<Mutex<Inner>>
+}
+
+/// Error type combining SPI and Pin errors for utility
+#[derive(Debug, Clone, PartialEq)]
+pub enum Error<SpiError, PinError> {
+    Spi(SpiError),
+    Pin(PinError),
+    Aborted,
 }
 
 /// Mock transaction type for setting and checking expectations

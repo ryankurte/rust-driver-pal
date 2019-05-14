@@ -38,12 +38,13 @@ impl <T> Conv for T where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl <Spi, SpiError, Pin, PinError> Cursed for Wrapper<Spi, SpiError, Pin, PinError> {}
+impl <Spi, Pin, Error> Cursed for Wrapper<Spi, Pin, Error> {}
 
-impl <Spi, SpiError, Pin, PinError> Wrapper<Spi, SpiError, Pin, PinError> 
+impl <Spi, SpiError, Pin, PinError, Error> Wrapper<Spi, Pin, Error> 
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Pin: OutputPin<Error = PinError>,
+    Error: From<PinError> + From<SpiError>,
 {
 
     /// C FFI compatible spi_write function for dependency injection
