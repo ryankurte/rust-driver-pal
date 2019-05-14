@@ -31,17 +31,17 @@ pub trait Transactional {
 
     /// Read writes the prefix buffer then reads into the input buffer
     /// Note that the values of the input buffer will also be output, because, SPI...
-    fn read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
+    fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
     
     /// Write writes the prefix buffer then writes the output buffer
-    fn write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
+    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 
     /// Transfer writes the outgoing buffer while reading into the incoming buffer
     /// note that outgoing and incoming must have the same length
     //fn transfer(&mut self, outgoing: &[u8], incoming: &mut [u8]) -> Result<(), Self::Error>;
 
     /// Exec allows 'Transaction' objects to be chained together into a single transaction
-    fn exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
+    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions

@@ -57,7 +57,7 @@ where
         let data: &[u8] = unsafe { core::slice::from_raw_parts(data, data_len as usize) };
 
         // Execute command and handle errors
-        match s.write(&prefix, &data) {
+        match s.spi_write(&prefix, &data) {
             Ok(_) => 0,
             Err(e) => {
                 s.err = Some(e);
@@ -76,7 +76,7 @@ where
         let mut data: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(data, data_len as usize) };
 
         // Execute command and handle errors
-        match s.read(&prefix, &mut data) {
+        match s.spi_read(&prefix, &mut data) {
             Ok(_) => 0,
             Err(e) => {
                 s.err = Some(e);

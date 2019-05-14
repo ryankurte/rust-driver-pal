@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{Transaction, Transactional};
 
+use embedded_hal::blocking::spi;
+
 /// Mock Transactional SPI implementation
 pub struct Mock {
     inner: Arc<Mutex<Inner>>
@@ -22,16 +24,19 @@ pub enum Error<SpiError, PinError> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockTransaction {
     None,
-    Write((Vec<u8>, Vec<u8>)),
-    Read((Vec<u8>, Vec<u8>)),
-    Exec(Vec<MockExec>),
+    SpiWrite((Vec<u8>, Vec<u8>)),
+    SpiRead((Vec<u8>, Vec<u8>)),
+    SpiExec(Vec<MockExec>),
+
+    Write(Vec<u8>),
+    Transfer((Vec<u8>, Vec<u8>)),
 }
 
 /// MockExec type for composing mock exec transactions
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockExec {
-    Write(Vec<u8>),
-    Read(Vec<u8>),
+    SpiWrite(Vec<u8>),
+    SpiRead(Vec<u8>),
 }
 
 impl <'a> From<&Transaction<'a>> for MockExec {
@@ -40,12 +45,12 @@ impl <'a> From<&Transaction<'a>> for MockExec {
             Transaction::Read(ref d) => {
                 let mut v = Vec::with_capacity(d.len());
                 v.copy_from_slice(d);
-                MockExec::Read(v)
+                MockExec::SpiRead(v)
             },
             Transaction::Write(ref d) => {
                 let mut v = Vec::with_capacity(d.len());
                 v.copy_from_slice(d);
-                MockExec::Write(v)
+                MockExec::SpiWrite(v)
             },
         }
     }
@@ -102,19 +107,19 @@ impl Transactional for Mock {
 
     /// Read data from a specified address
     /// This consumes the provided input data array and returns a reference to this on success
-    fn read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error> {
+    fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
         // Copy read data from expectation
         match &i.expected[index] {
-            MockTransaction::Read(expected) => data.copy_from_slice(&expected.1),
+            MockTransaction::SpiRead(expected) => data.copy_from_slice(&expected.1),
             _ => (),
         };
                        
         // Save actual call
         let actual = &mut i.actual[index];
-        *actual = MockTransaction::Read((prefix.into(), data.into()));
+        *actual = MockTransaction::SpiRead((prefix.into(), data.into()));
         
         // Update expectation index
         i.index += 1;
@@ -123,13 +128,13 @@ impl Transactional for Mock {
     }
 
     /// Write data to a specified register address
-    fn write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
+    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
         
         // Save actual call
         let actual = &mut i.actual[index];
-        *actual = MockTransaction::Write((prefix.into(), data.into()));
+        *actual = MockTransaction::SpiWrite((prefix.into(), data.into()));
 
         // TODO: Any expectation checking here..?
         let _expected = &i.expected[index];
@@ -141,23 +146,23 @@ impl Transactional for Mock {
     }
 
     /// Execute the provided transactions
-    fn exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
+    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
         // Save actual calls
         let actual = &mut i.actual[index];
         let t: Vec<MockExec> = transactions.iter().map(|ref v| MockExec::from(*v) ).collect();
-        *actual = MockTransaction::Exec(t);
+        *actual = MockTransaction::SpiExec(t);
 
         // Load expected reads
-        if let MockTransaction::Exec(e) = &i.expected[index] {
+        if let MockTransaction::SpiExec(e) = &i.expected[index] {
             for i in 0..transactions.len() {
                 let t = &mut transactions[i];
                 let x = e.get(i);
 
                 match (t, x) {
-                    (Transaction::Read(ref mut v), Some(MockExec::Read(d))) => v.copy_from_slice(d),
+                    (Transaction::Read(ref mut v), Some(MockExec::SpiRead(d))) => v.copy_from_slice(d),
                     _ => ()
                 }
             }
@@ -170,6 +175,61 @@ impl Transactional for Mock {
     }
 }
 
+
+impl spi::Transfer<u8> for Mock 
+{
+    type Error = Error<(), ()>;
+
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        let incoming: Vec<_> = data.into();
+
+        // Copy read data from expectation
+        match &i.expected[index] {
+            MockTransaction::Transfer((_outgoing, incoming)) => {
+                if incoming.len() == data.len() {
+                    data.copy_from_slice(&incoming);
+                }
+            },
+            _ => (),
+        };
+                       
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::Transfer((incoming, data.into()));
+        
+        // Update expectation index
+        i.index += 1;
+
+        Ok(data)
+    }
+}
+
+impl spi::Write<u8> for Mock  
+{
+    type Error = Error<(), ()>;
+    
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+        
+        // Save actual call
+        let actual = &mut i.actual[index];
+        *actual = MockTransaction::Write(data.into());
+
+        // TODO: Any expectation checking here..?
+        let _expected = &i.expected[index];
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
+    }
+}
+
+
 #[cfg(test)]
 mod test {
     use std::*;
@@ -178,16 +238,16 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_read() {
+    fn test_transactional_read() {
         let mut m = Mock::new();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
-        m.expect(vec![MockTransaction::Read((prefix.clone(), data.clone()))]);
+        m.expect(vec![MockTransaction::SpiRead((prefix.clone(), data.clone()))]);
 
         let mut d = [0u8; 2];
-        m.read(&prefix, &mut d).expect("read failure");
+        m.spi_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -195,48 +255,82 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn test_read_expect_write() {
+    fn test_transactional_read_expect_write() {
         let mut m = Mock::new();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
-        m.expect(vec![MockTransaction::Write((prefix.clone(), data.clone()))]);
+        m.expect(vec![MockTransaction::SpiWrite((prefix.clone(), data.clone()))]);
 
         let mut d = [0u8; 2];
-        m.read(&prefix, &mut d).expect("read failure");
+        m.spi_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
     }
 
     #[test]
-    fn test_write() {
+    fn test_transactional_write() {
         let mut m = Mock::new();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
-        m.expect(vec![MockTransaction::Write((prefix.clone(), data.clone()))]);
+        m.expect(vec![MockTransaction::SpiWrite((prefix.clone(), data.clone()))]);
 
-        m.write(&prefix, &data).expect("write failure");
+        m.spi_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
 
     #[test]
     #[should_panic]
-    fn test_write_expect_read() {
+    fn test_transactional_write_expect_read() {
         let mut m = Mock::new();
 
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
-        m.expect(vec![MockTransaction::Read((prefix.clone(), data.clone()))]);
+        m.expect(vec![MockTransaction::SpiRead((prefix.clone(), data.clone()))]);
 
-        m.write(&prefix, &data).expect("write failure");
+        m.spi_write(&prefix, &data).expect("write failure");
 
         m.finalise();
+    }
+
+    #[test]
+    fn test_standard_write() {
+        use embedded_hal::blocking::spi::Write;
+
+        let mut m = Mock::new();
+
+        let data = vec![0xAA, 0xBB];
+
+        m.expect(vec![MockTransaction::Write(data.clone())]);
+
+        m.write(&data).expect("write failure");
+
+        m.finalise();
+    }
+
+    #[test]
+    fn test_standard_transfer() {
+        use embedded_hal::blocking::spi::Transfer;
+
+        let mut m = Mock::new();
+
+        let prefix = vec![0xFF];
+        let outgoing = vec![0xAA, 0xBB];
+        let incoming = vec![0xCC, 0xDD];
+
+        m.expect(vec![MockTransaction::Transfer((outgoing.clone(), incoming.clone()))]);
+
+        let mut d = outgoing.clone();
+        m.transfer(&mut d).expect("read failure");
+
+        m.finalise();
+        assert_eq!(&incoming, &d);
     }
 
 }

@@ -82,7 +82,7 @@ where
 
     /// Read data from a specified address
     /// This consumes the provided input data array and returns a reference to this on success
-    fn read<'a>(&mut self, prefix: &[u8], mut data: &'a mut [u8]) -> Result<(), Self::Error> {
+    fn spi_read<'a>(&mut self, prefix: &[u8], mut data: &'a mut [u8]) -> Result<(), Self::Error> {
         // Assert CS
         self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
@@ -105,7 +105,7 @@ where
     }
 
     /// Write data to a specified register address
-    fn write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
+    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         // Assert CS
         self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
@@ -128,7 +128,7 @@ where
     }
 
     /// Execute the provided transactions
-    fn exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
+    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
         let mut res = Ok(());
 
         // Assert CS
@@ -151,5 +151,31 @@ where
         self.cs.set_low().map_err(|e| -> Error { PinError::into(e) })?;
 
         res
+    }
+}
+
+impl <Spi, SpiError, Pin, PinError, Error> Transfer<u8> for Wrapper<Spi, Pin, Error>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Pin: OutputPin<Error = PinError>,
+    Error: From<PinError> + From<SpiError>,
+{
+    type Error = SpiError;
+
+    fn transfer<'w>(&mut self, buffer: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        Transfer::transfer(&mut self.spi, buffer)
+    }
+}
+
+impl <Spi, SpiError, Pin, PinError, Error> Write<u8> for Wrapper<Spi, Pin, Error>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Pin: OutputPin<Error = PinError>,
+    Error: From<PinError> + From<SpiError>,
+{
+    type Error = SpiError;
+    
+    fn write<'w>(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
+        Write::write(&mut self.spi, buffer)
     }
 }
