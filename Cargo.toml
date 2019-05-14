@@ -2,7 +2,7 @@
 name = "embedded-spi"
 description = "Rust embedded FFI helper and testing package"
 repository = "https://github.com/ryankurte/rust-embedded-ffi"
-version = "0.4.1-alpha.0"
+version = "0.4.0"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
