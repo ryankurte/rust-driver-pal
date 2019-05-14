@@ -7,10 +7,16 @@
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
 #![no_std]
 
-pub mod wrapper;
+#[macro_use]
+extern crate log;
+
+extern crate embedded_hal;
 
 #[cfg(feature = "mock")]
 extern crate std;
+
+
+pub mod wrapper;
 
 #[cfg(feature = "mock")]
 pub mod mock;
@@ -21,7 +27,6 @@ extern crate libc;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 
-extern crate embedded_hal;
 
 
 /// Transaction trait provides higher level, transaction-based, SPI constructs

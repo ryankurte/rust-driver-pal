@@ -104,6 +104,8 @@ where
         // Clear CS
         self.cs.set_high().map_err(|e| { Error::Pin(e) })?;
 
+        trace!("[spi_read] prefix: {:?} received: {:?}", prefix, data);
+
         // Return result (contains returned data)
         match res {
             Err(e) => Err( Error::Spi(e) ),
@@ -115,6 +117,8 @@ where
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         // Assert CS
         self.cs.set_low().map_err(|e| { Error::Pin(e) })?;
+
+        trace!("[spi_write] prefix: {:?} writing: {:?}", prefix, data);
 
         // Write command
         let mut res = self.spi.write(&prefix);
@@ -186,8 +190,13 @@ where
 {
     type Error = SpiError;
 
-    fn transfer<'w>(&mut self, buffer: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        Transfer::transfer(&mut self.spi, buffer)
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        trace!("[spi::Transfer] writing: {:?}", &data);
+        Transfer::transfer(&mut self.spi, data)
+            .map(|r| {
+                trace!("[spi::Transfer] read: {:?}", &r);
+                r
+            })
     }
 }
 
@@ -199,7 +208,8 @@ where
 {
     type Error = SpiError;
     
-    fn write<'w>(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
-        Write::write(&mut self.spi, buffer)
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        trace!("[spi::Write] writing: {:?}",  &data);
+        Write::write(&mut self.spi, data)
     }
 }
