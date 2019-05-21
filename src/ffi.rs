@@ -4,6 +4,7 @@
 
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::{OutputPin, InputPin};
+use embedded_hal::blocking::delay::DelayMs;
 
 use crate::{Transactional};
 use crate::wrapper::Wrapper;
@@ -38,13 +39,14 @@ impl <T> Conv for T where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl <Spi, SpiError, Output, Input, PinError> Cursed for Wrapper<Spi, SpiError, Output, Input, PinError> {}
+impl <Spi, SpiError, Output, Input, PinError, Delay> Cursed for Wrapper<Spi, SpiError, Output, Input, PinError, Delay> {}
 
-impl <Spi, SpiError, Output, Input, PinError> Wrapper<Spi, SpiError, Output, Input, PinError> 
+impl <Spi, SpiError, Output, Input, PinError, Delay> Wrapper<Spi, SpiError, Output, Input, PinError, Delay> 
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
 
     /// C FFI compatible spi_write function for dependency injection

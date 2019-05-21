@@ -42,11 +42,11 @@ pub struct DeviceConfig {
 }
 
 impl DeviceConfig {
-    pub fn load(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, ()> {
+    pub fn load(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Delay> {
         let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
         let cs = load_pin(self.chip_select, Direction::Out);
 
-        let mut w = Wrapper::new(spi, cs);
+        let mut w = Wrapper::new(spi, cs, Delay{});
 
         if let Some(v) = self.busy {
             w.with_busy(load_pin(v, Direction::In));

@@ -4,14 +4,21 @@
 
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::{OutputPin, InputPin};
+use embedded_hal::blocking::delay::DelayMs;
 
 use crate::{Transaction, Transactional, Busy, Ready, Reset, PinState, Error};
 
 /// Wrapper wraps an Spi and Pin object to support transactions
 #[derive(Debug, Clone, PartialEq)]
-pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
+pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError, Delay> {
+    /// SPI device
     spi: Spi,
+
+    /// Chip select pin (required)
     cs: OutputPin,
+
+    /// Delay implementation
+    delay: Delay,
 
     /// Busy input pin (optional)
     busy: Option<InputPin>,
@@ -22,18 +29,20 @@ pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
     /// Reset output pin (optional)
     reset: Option<OutputPin>,
 
+
     pub(crate) err: Option<Error<SpiError, PinError>>,
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
     /// Create a new wrapper object with the provided SPI and pin
-    pub fn new(spi: Spi, cs: Output) -> Self {
-        Self{spi, cs, err: None, busy: None, ready: None, reset: None}
+    pub fn new(spi: Spi, cs: Output, delay: Delay) -> Self {
+        Self{spi, cs, delay, err: None, busy: None, ready: None, reset: None}
     }
 
     /// Add a busy input to the wrapper object
@@ -97,11 +106,12 @@ where
     }
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Transactional for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Transactional for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
     type Error = Error<SpiError, PinError>;
 
@@ -184,11 +194,12 @@ where
 
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Busy for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Busy for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
 
     type Error = Error<SpiError, PinError>;
@@ -209,11 +220,12 @@ where
     }
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Ready for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Ready for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
 
     type Error = Error<SpiError, PinError>;
@@ -234,11 +246,12 @@ where
     }
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Reset for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Reset for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
 
     type Error = Error<SpiError, PinError>;
@@ -256,11 +269,12 @@ where
     }
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Transfer<u8> for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Transfer<u8> for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
     
 {
     type Error = SpiError;
@@ -275,11 +289,12 @@ where
     }
 }
 
-impl <Spi, SpiError, Output, Input, PinError> Write<u8> for Wrapper<Spi, SpiError, Output, Input, PinError>  
+impl <Spi, SpiError, Output, Input, PinError, Delay> Write<u8> for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     Output: OutputPin<Error = PinError>,
     Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
 {
     type Error = SpiError;
     
