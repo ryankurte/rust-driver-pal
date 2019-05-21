@@ -5,7 +5,7 @@
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::{OutputPin, InputPin};
 
-use crate::{Transaction, Transactional, PinState, Error};
+use crate::{Transaction, Transactional, Busy, Ready, Reset, PinState, Error};
 
 /// Wrapper wraps an Spi and Pin object to support transactions
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +14,10 @@ pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
     cs: OutputPin,
 
     busy: Option<InputPin>,
+
+    ready: Option<InputPin>,
+
+    reset: Option<OutputPin>,
 
     pub(crate) err: Option<Error<SpiError, PinError>>,
 }
@@ -26,7 +30,7 @@ where
 {
     /// Create a new wrapper object with the provided SPI and pin
     pub fn new(spi: Spi, cs: Output) -> Self {
-        Self{spi, cs, err: None, busy: None}
+        Self{spi, cs, err: None, busy: None, ready: None, reset: None}
     }
 
     /// Add a busy input to the wrapper object
@@ -164,9 +168,19 @@ where
         res
     }
 
-    /// Check if the peripheral is currently busy
-    /// This will panic if not busy pin is bound
-    fn spi_busy(&mut self) -> Result<PinState, Self::Error> {
+}
+
+impl <Spi, SpiError, Output, Input, PinError> Busy for Wrapper<Spi, SpiError, Output, Input, PinError>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
+{
+
+    type Error = Error<SpiError, PinError>;
+    
+    /// Fetch the busy pin state
+    fn get_busy(&mut self) -> Result<PinState, Self::Error> {
         match &self.busy {
             // TODO: should this be an error?
             None => Ok(PinState::Low),
@@ -177,6 +191,53 @@ where
                     false => Ok(PinState::Low),
                 }
             }
+        }
+    }
+}
+
+impl <Spi, SpiError, Output, Input, PinError> Ready for Wrapper<Spi, SpiError, Output, Input, PinError>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
+{
+
+    type Error = Error<SpiError, PinError>;
+    
+    /// Fetch the ready pin state
+    fn get_ready(&mut self) -> Result<PinState, Self::Error> {
+        match &self.ready {
+            // TODO: should this be an error?
+            None => Ok(PinState::Low),
+            Some(b) => {
+                let v = b.is_high().map_err(|e| Error::Pin(e) )?;
+                match v {
+                    true => Ok(PinState::High),
+                    false => Ok(PinState::Low),
+                }
+            }
+        }
+    }
+}
+
+impl <Spi, SpiError, Output, Input, PinError> Reset for Wrapper<Spi, SpiError, Output, Input, PinError>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
+{
+
+    type Error = Error<SpiError, PinError>;
+
+    /// Set the reset pin state
+    fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
+        if let Some(p) = &mut self.reset {
+            match state {
+                PinState::High => p.set_high().map_err(|e| Error::Pin(e) ),
+                PinState::Low => p.set_low().map_err(|e| Error::Pin(e) ),
+            }
+        } else {
+            Ok(())
         }
     }
 }

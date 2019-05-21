@@ -3,7 +3,7 @@ use std::{panic, vec};
 use std::vec::Vec;
 use std::sync::{Arc, Mutex};
 
-use crate::{Transaction, Transactional, PinState, Error};
+use crate::{Transaction, Transactional, Busy, Ready, Reset, PinState, Error};
 
 use embedded_hal::blocking::spi;
 use embedded_hal::digital::v2;
@@ -46,7 +46,10 @@ pub enum MockTransaction {
     SpiWrite(Id, Vec<u8>, Vec<u8>),
     SpiRead(Id, Vec<u8>, Vec<u8>),
     SpiExec(Id, Vec<MockExec>),
-    SpiBusy(Id, PinState),
+
+    Busy(Id, PinState),
+    Ready(Id, PinState),
+    Reset(Id, PinState),
 
     Write(Id, Vec<u8>),
     Transfer(Id, Vec<u8>, Vec<u8>),
@@ -77,8 +80,16 @@ impl MockTransaction {
         MockTransaction::SpiRead(spi.id, prefix.as_ref().to_vec(), incoming.as_ref().to_vec())
     }
 
-    pub fn spi_busy(spi: &Spi, value: PinState) -> Self {
-        MockTransaction::SpiBusy(spi.id, value)
+    pub fn busy(spi: &Spi, value: PinState) -> Self {
+        MockTransaction::Busy(spi.id, value)
+    }
+
+    pub fn ready(spi: &Spi, value: PinState) -> Self {
+        MockTransaction::Ready(spi.id, value)
+    }
+
+    pub fn reset(spi: &Spi, value: PinState) -> Self {
+        MockTransaction::Reset(spi.id, value)
     }
 
     pub fn write<B>(spi: &Spi, outgoing: B) -> Self 
@@ -267,22 +278,59 @@ impl Transactional for Spi {
 
         Ok(())
     }
+}
 
+impl Busy for Spi {
+    type Error = Error<(), ()>;
     /// Check peripheral busy status
-    fn spi_busy(&mut self) -> Result<PinState, Self::Error> {
+    fn get_busy(&mut self) -> Result<PinState, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
         let state = match &i.expected.get(index) {
-            Some(MockTransaction::SpiBusy(_id, state)) => state.clone(),
+            Some(MockTransaction::Busy(_id, state)) => state.clone(),
             _ => PinState::Low,
         };
 
-        i.actual.push(MockTransaction::SpiBusy(self.id, state.clone()));
+        i.actual.push(MockTransaction::Busy(self.id, state.clone()));
 
         i.index += 1;
 
         Ok(state)
+    }
+}
+
+impl Ready for Spi {
+    type Error = Error<(), ()>;
+    /// Check peripheral ready status
+    fn get_ready(&mut self) -> Result<PinState, Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        let state = match &i.expected.get(index) {
+            Some(MockTransaction::Ready(_id, state)) => state.clone(),
+            _ => PinState::Low,
+        };
+
+        i.actual.push(MockTransaction::Ready(self.id, state.clone()));
+
+        i.index += 1;
+
+        Ok(state)
+    }
+}
+
+impl Reset for Spi {
+    type Error = Error<(), ()>;
+    /// Check peripheral ready status
+    fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+
+        i.actual.push(MockTransaction::Reset(self.id, state));
+
+        i.index += 1;
+
+        Ok(())
     }
 }
 

@@ -47,9 +47,6 @@ pub trait Transactional {
 
     /// Exec allows 'Transaction' objects to be chained together into a single transaction
     fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
-
-    /// Busy returns the value of the busy input signal if available
-    fn spi_busy(&mut self) -> Result<PinState, Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions
@@ -62,6 +59,30 @@ pub enum Transaction<'a> {
     // Write the first buffer while reading into the second
     // This behaviour is actually just the same as Read
     //Transfer((&'a [u8], &'a mut [u8]))
+}
+
+/// Busy trait for peripherals that support a busy signal
+pub trait Busy {
+    type Error;
+
+    /// Returns the busy pin state if bound
+    fn get_busy(&mut self) -> Result<PinState, Self::Error>;
+}
+
+/// Reset trait for peripherals that have a reset or shutdown pin
+pub trait Reset {
+    type Error;
+
+    /// Set the reset pin state if available
+    fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error>;
+}
+
+/// Ready trait for peripherals that support a ready signal (or IRQ)
+pub trait Ready {
+    type Error;
+
+    /// Returns the busy pin state if bound
+    fn get_ready(&mut self) -> Result<PinState, Self::Error>;
 }
 
 
