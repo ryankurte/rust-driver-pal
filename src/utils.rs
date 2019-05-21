@@ -1,8 +1,10 @@
 
+
 use std::fs::read_to_string;
+use std::string::{String, ToString};
 
 use structopt::StructOpt;
-use serde::de::Deserialize;
+use serde::{Deserialize, de::DeserializeOwned};
 use simplelog::{TermLogger, LevelFilter};
 
 use linux_embedded_hal::{spidev, Spidev, Pin as Pindev, Delay};
@@ -36,17 +38,18 @@ pub struct DeviceConfig {
     ready: Option<u64>,
 }
 
-#[derive(Debug, StructOpt, Deserialize)]
+#[derive(Debug, StructOpt)]
 pub struct LogConfig {
     #[structopt(long = "log-level", default_value = "info")]
     /// Enable verbose logging
     level: LevelFilter,
 }
 
-pub fn load_spi(path: &str, baud: u32, mode: spidev::Mode) -> Spidev {
+/// Load an SPI device using the provided configuration
+pub fn load_spi(path: &str, baud: u32, mode: spidev::SpiModeFlags) -> Spidev {
     debug!("Conecting to spi: {} at {} baud with mode: {:?}", path, baud, mode);
 
-    let mut spi = Spidev::open(opts.spi).expect("error opening spi device");
+    let mut spi = Spidev::open(path).expect("error opening spi device");
     
     let mut config = spidev::SpidevOptions::new();
     config.mode(spidev::SPI_MODE_0);
@@ -56,22 +59,29 @@ pub fn load_spi(path: &str, baud: u32, mode: spidev::Mode) -> Spidev {
     spi
 }
 
+/// Load a Pin using the provided configuration
 pub fn load_pin(index: u64, direction: Direction) -> Pindev {
-    debug!("Connecting to pin: {} with direction: {:?}", pin, direction);
+    debug!("Connecting to pin: {} with direction: {:?}", index, direction);
 
-    let p = PinDev::new(index);
+    let p = Pindev::new(index);
     p.export().expect("error exporting cs pin");
     p.set_direction(direction).expect("error setting cs pin direction");
 
     p
 }
 
+/// Initialise logging
 pub fn init_logging(level: LevelFilter) {
-    TermLogger::init(opts.level, simplelog::Config::default()).unwrap();
+    TermLogger::init(level, simplelog::Config::default()).unwrap();
 }
 
+/// Load a configuration file
 pub fn load_config<T>(file: &str) -> T
-where T: Deserialize {
+where T: DeserializeOwned {
     let d = read_to_string(file).expect("error reading file");
-    toml::from_str(d).expect("error parsing toml file")
+    toml::from_str(&d).expect("error parsing toml file")
+}
+
+pub fn delay() -> Delay {
+    Delay{}
 }
