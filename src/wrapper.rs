@@ -13,10 +13,13 @@ pub struct Wrapper<Spi, SpiError, OutputPin, InputPin, PinError> {
     spi: Spi,
     cs: OutputPin,
 
+    /// Busy input pin (optional)
     busy: Option<InputPin>,
 
+    /// Ready input pin (optional)
     ready: Option<InputPin>,
 
+    /// Reset output pin (optional)
     reset: Option<OutputPin>,
 
     pub(crate) err: Option<Error<SpiError, PinError>>,
@@ -37,6 +40,17 @@ where
     pub fn with_busy(&mut self, busy: Input) {
         self.busy = Some(busy);
     }
+
+    /// Add a ready input to the wrapper object
+    pub fn with_ready(&mut self, ready: Input) {
+        self.ready = Some(ready);
+    }
+
+    /// Add a reset output to the wrapper object
+    pub fn with_reset(&mut self, reset: Output) {
+        self.reset = Some(reset);
+    }
+
 
     /// Write to a Pin instance while wrapping and storing the error internally
     /// This returns 0 for success or -1 for errors

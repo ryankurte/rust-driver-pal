@@ -3,12 +3,15 @@
 use std::fs::read_to_string;
 use std::string::{String, ToString};
 
-use structopt::StructOpt;
-use serde::{Deserialize, de::DeserializeOwned};
-use simplelog::{TermLogger, LevelFilter};
+pub use serde::{Deserialize, de::DeserializeOwned};
+pub use structopt::StructOpt;
 
-use linux_embedded_hal::{spidev, Spidev, Pin as Pindev, Delay};
-use linux_embedded_hal::sysfs_gpio::Direction;
+pub use simplelog::{TermLogger, LevelFilter};
+
+pub use linux_embedded_hal::{spidev, Spidev, Pin as Pindev, Delay};
+pub use linux_embedded_hal::sysfs_gpio::Direction;
+
+use crate::wrapper::Wrapper;
 
 /// Generic device configuration structure for SPI drivers
 #[derive(Debug, StructOpt, Deserialize)]
@@ -23,11 +26,11 @@ pub struct DeviceConfig {
 
     /// Chip Select (output) pin
     #[structopt(long = "cs-pin", default_value = "16")]
-    cs: u64,
+    chip_select: u64,
 
     /// Reset (output) pin
-    #[structopt(long = "rst-pin", default_value = "17")]
-    rst: u64,
+    #[structopt(long = "reset-pin")]
+    reset: Option<u64>,
 
     /// Busy (input) pin
     #[structopt(long = "busy-pin")]
@@ -36,6 +39,29 @@ pub struct DeviceConfig {
     /// Ready (input) pin
     #[structopt(long = "ready-pin")]
     ready: Option<u64>,
+}
+
+impl DeviceConfig {
+    pub fn load(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, ()> {
+        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        let cs = load_pin(self.chip_select, Direction::Out);
+
+        let mut w = Wrapper::new(spi, cs);
+
+        if let Some(v) = self.busy {
+            w.with_busy(load_pin(v, Direction::In));
+        }
+
+        if let Some(v) = self.ready {
+            w.with_ready(load_pin(v, Direction::In));
+        }
+
+        if let Some(v) = self.reset {
+            w.with_reset(load_pin(v, Direction::Out));
+        }
+
+        w
+    }
 }
 
 #[derive(Debug, StructOpt)]
