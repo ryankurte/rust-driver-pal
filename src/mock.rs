@@ -59,7 +59,7 @@ pub enum MockTransaction {
     SetHigh(Id),
     SetLow(Id),
 
-    DelayMs(Id, u32),
+    DelayMs(u32),
 }
 
 impl MockTransaction {
@@ -92,6 +92,10 @@ impl MockTransaction {
         MockTransaction::Reset(spi.id, value)
     }
 
+    pub fn delay_ms(v: u32) -> Self {
+        MockTransaction::DelayMs(v)
+    }
+
     pub fn write<B>(spi: &Spi, outgoing: B) -> Self 
     where B: AsRef<[u8]>
     {
@@ -119,10 +123,6 @@ impl MockTransaction {
 
     pub fn set_low(pin: &Pin) -> Self {
         MockTransaction::SetLow(pin.id)
-    }
-
-    pub fn delay_ms(delay: &Delay, v: u32) -> Self {
-        MockTransaction::DelayMs(delay.id, v)
     }
 }
 
@@ -334,6 +334,18 @@ impl Reset for Spi {
     }
 }
 
+impl DelayMs<u32> for Spi {
+    fn delay_ms(&mut self, t: u32) {
+        let mut i = self.inner.lock().unwrap();
+
+        // Save actual call
+        i.actual.push(MockTransaction::DelayMs(t));
+
+        // Update expectation index
+        i.index += 1;
+    }
+}
+
 
 impl spi::Transfer<u8> for Spi 
 {
@@ -458,7 +470,7 @@ impl DelayMs<u32> for Delay {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
-        i.actual.push(MockTransaction::DelayMs(self.id, t));
+        i.actual.push(MockTransaction::DelayMs(t));
 
         // Update expectation index
         i.index += 1;

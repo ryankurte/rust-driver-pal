@@ -269,6 +269,20 @@ where
     }
 }
 
+impl <Spi, SpiError, Output, Input, PinError, Delay> DelayMs<u32> for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Output: OutputPin<Error = PinError>,
+    Input: InputPin<Error = PinError>,
+    Delay: DelayMs<u32>,
+{
+    /// Set the reset pin state
+    fn delay_ms(&mut self, ms: u32) {
+        self.delay.delay_ms(ms);
+    }
+}
+
+
 impl <Spi, SpiError, Output, Input, PinError, Delay> Transfer<u8> for Wrapper<Spi, SpiError, Output, Input, PinError, Delay>  
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
