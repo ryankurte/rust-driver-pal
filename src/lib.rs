@@ -12,14 +12,15 @@ extern crate log;
 
 extern crate embedded_hal;
 
-#[cfg(feature = "mock")]
-extern crate std;
-
 
 pub mod wrapper;
 
 #[cfg(feature = "mock")]
+extern crate std;
+
+#[cfg(feature = "mock")]
 pub mod mock;
+
 
 #[cfg(feature = "ffi")]
 extern crate libc;
@@ -27,6 +28,21 @@ extern crate libc;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 
+
+#[cfg(feature = "utils")]
+extern crate serde;
+
+#[cfg(feature = "utils")]
+extern crate toml;
+
+#[cfg(feature = "utils")]
+extern crate simplelog;
+
+#[cfg(feature = "utils")]
+extern crate linux_embedded_hal;
+
+#[cfg(feature = "utils")]
+pub mod utils;
 
 
 /// Transaction trait provides higher level, transaction-based, SPI constructs
