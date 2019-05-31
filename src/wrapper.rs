@@ -132,7 +132,7 @@ where
         // Clear CS
         self.cs.set_high().map_err(|e| { Error::Pin(e) })?;
 
-        trace!("[spi_read] prefix: {:?} received: {:x?}", prefix, data);
+        trace!("[spi_read] prefix: {:x?} received: {:x?}", prefix, data);
 
         // Return result (contains returned data)
         match res {
@@ -146,7 +146,7 @@ where
         // Assert CS
         self.cs.set_low().map_err(|e| { Error::Pin(e) })?;
 
-        trace!("[spi_write] prefix: {:?} writing: {:x?}", prefix, data);
+        trace!("[spi_write] prefix: {:x?} writing: {:x?}", prefix, data);
 
         // Write command
         let mut res = self.spi.write(&prefix);
