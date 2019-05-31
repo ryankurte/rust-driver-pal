@@ -1,7 +1,7 @@
 [package]
 name = "embedded-spi"
-description = "Rust embedded FFI helper and testing package"
-repository = "https://github.com/ryankurte/rust-embedded-ffi"
+description = "Rust embedded driver helper package"
+repository = "https://github.com/ryankurte/rust-embedded-spi"
 version = "0.5.6"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
