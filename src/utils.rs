@@ -8,6 +8,7 @@ pub use structopt::StructOpt;
 
 pub use simplelog::{TermLogger, LevelFilter};
 
+pub use embedded_hal::digital::v2::{InputPin, OutputPin};
 pub use linux_embedded_hal::{spidev, Spidev, Pin as Pindev, Delay};
 pub use linux_embedded_hal::sysfs_gpio::Direction;
 
@@ -44,7 +45,9 @@ pub struct DeviceConfig {
 impl DeviceConfig {
     pub fn load(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Delay> {
         let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
-        let cs = load_pin(self.chip_select, Direction::Out);
+        
+        let mut cs = load_pin(self.chip_select, Direction::Out);
+        cs.set_high().unwrap();
 
         let mut w = Wrapper::new(spi, cs, Delay{});
 
@@ -78,7 +81,7 @@ pub fn load_spi(path: &str, baud: u32, mode: spidev::SpiModeFlags) -> Spidev {
     let mut spi = Spidev::open(path).expect("error opening spi device");
     
     let mut config = spidev::SpidevOptions::new();
-    config.mode(spidev::SPI_MODE_0);
+    config.mode(spidev::SPI_MODE_0 | spidev::SPI_NO_CS);
     config.max_speed_hz(baud);
     spi.configure(&config).expect("error configuring spi device");
 
