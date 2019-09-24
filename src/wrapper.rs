@@ -40,7 +40,7 @@ where
 {
     /// Create a new wrapper object with the provided SPI and pin
     pub fn new(spi: Spi, cs: CsPin, busy: BusyPin, ready: ReadyPin, reset: ResetPin, delay: Delay) -> Self{
-        Self{spi: spi, cs: cs, delay: delay, busy: busy, ready: ready, reset: reset, err: None}
+        Self{spi, cs, delay, busy, ready, reset, err: None}
     }
 
     /// Write to a Pin instance while wrapping and storing the error internally

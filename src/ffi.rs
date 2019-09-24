@@ -3,7 +3,7 @@
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
 use embedded_hal::blocking::spi::{Transfer, Write};
-use embedded_hal::digital::v2::{OutputPin, InputPin};
+use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::blocking::delay::DelayMs;
 
 use crate::{Transactional};
@@ -39,13 +39,12 @@ impl <T> Conv for T where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl <Spi, SpiError, Output, Input, PinError, Delay> Cursed for Wrapper<Spi, SpiError, Output, Input, PinError, Delay> {}
+impl <Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Cursed for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> {}
 
-impl <Spi, SpiError, Output, Input, PinError, Delay> Wrapper<Spi, SpiError, Output, Input, PinError, Delay> 
+impl <Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>  Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
     Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
-    Output: OutputPin<Error = PinError>,
-    Input: InputPin<Error = PinError>,
+    CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
 
