@@ -1,7 +1,7 @@
 //! Embedded SPI helper package
 //! This defines a higher level `Transactional` SPI interface, as well as an SPI `Transaction` enumeration
 //! that more closely map to the common uses of SPI peripherals, as well as some other common driver helpers.
-//! 
+//!
 //! An `embedded_spi::wrapper::Wrapper` type is provided to wrap existing SPI implementations in this
 //! `embedded_spi::Transactional` interface, as well as a set of helpers for C compatibility enabled with
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
@@ -12,7 +12,6 @@ extern crate log;
 
 extern crate embedded_hal;
 
-
 pub mod wrapper;
 
 #[cfg(feature = "mock")]
@@ -21,13 +20,11 @@ extern crate std;
 #[cfg(feature = "mock")]
 pub mod mock;
 
-
 #[cfg(feature = "ffi")]
 extern crate libc;
 
 #[cfg(feature = "ffi")]
 pub mod ffi;
-
 
 #[cfg(feature = "utils")]
 extern crate serde;
@@ -44,7 +41,6 @@ extern crate linux_embedded_hal;
 #[cfg(feature = "utils")]
 pub mod utils;
 
-
 /// Transaction trait provides higher level, transaction-based, SPI constructs
 /// These are executed in a single SPI transaction (without de-asserting CS).
 pub trait Transactional {
@@ -53,7 +49,7 @@ pub trait Transactional {
     /// Read writes the prefix buffer then reads into the input buffer
     /// Note that the values of the input buffer will also be output, because, SPI...
     fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
-    
+
     /// Write writes the prefix buffer then writes the output buffer
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 
@@ -101,7 +97,6 @@ pub trait Ready {
     fn get_ready(&mut self) -> Result<PinState, Self::Error>;
 }
 
-
 /// Error type combining SPI and Pin errors for utility
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error<SpiError, PinError> {
@@ -114,5 +109,5 @@ pub enum Error<SpiError, PinError> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum PinState {
     Low,
-    High
+    High,
 }
