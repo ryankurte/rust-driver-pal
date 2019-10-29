@@ -18,23 +18,23 @@ use crate::wrapper::Wrapper;
 #[derive(Debug, StructOpt, Deserialize)]
 pub struct DeviceConfig {
     /// Spi device
-    #[structopt(short = "d", long = "spi-dev", default_value = "/dev/spidev0.0")]
+    #[structopt(short = "d", long = "spi-dev", default_value = "/dev/spidev0.0", env="SPI_DEV")]
     spi: String,
 
     /// Baud rate setting
-    #[structopt(short = "b", long = "spi-baud", default_value = "1000000", env = "SX127X_BAUD")]
+    #[structopt(short = "b", long = "spi-baud", default_value = "1000000", env = "SPI_BAUD")]
     baud: u32,
 
     /// Chip Select (output) pin
-    #[structopt(long = "cs-pin", default_value = "16")]
+    #[structopt(long = "cs-pin", default_value = "16", env="CS_PIN")]
     chip_select: u64,
 
     /// Reset (output) pin
-    #[structopt(long = "reset-pin")]
-    reset: Option<u64>,
+    #[structopt(long = "reset-pin", default_value = "17", env="RESET_PIN")]
+    reset: u64,
 
     /// Busy (input) pin
-    #[structopt(long = "busy-pin")]
+    #[structopt(long = "busy-pin", env="BUSY_PIN")]
     busy: Option<u64>,
 
     /// Ready (input) pin
@@ -43,27 +43,74 @@ pub struct DeviceConfig {
 }
 
 impl DeviceConfig {
-    pub fn load(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Delay> {
+    /// Load without busy or ready pins
+    pub fn load_base(&self) -> Wrapper<Spidev, std::io::Error, Pindev, (), (), Pindev, (), Delay> {
+        // Load SPI peripheral
         let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
         
+        // Setup CS pin
         let mut cs = load_pin(self.chip_select, Direction::Out);
         cs.set_high().unwrap();
 
-        let mut w = Wrapper::new(spi, cs, Delay{});
+        // Setup reset pin
+        let reset = load_pin(self.reset, Direction::Out);       
 
-        if let Some(v) = self.busy {
-            w.with_busy(load_pin(v, Direction::In));
-        }
+        Wrapper::new(spi, cs, (), (), reset, Delay{})
+    }
 
-        if let Some(v) = self.ready {
-            w.with_ready(load_pin(v, Direction::In));
-        }
+    /// Load with busy pin
+    pub fn load_with_busy(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Pindev, (), Delay> {
+        // Load SPI peripheral
+        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        
+        // Setup CS pin
+        let mut cs = load_pin(self.chip_select, Direction::Out);
+        cs.set_high().unwrap();
 
-        if let Some(v) = self.reset {
-            w.with_reset(load_pin(v, Direction::Out));
-        }
+        // Setup reset pin
+        let reset = load_pin(self.reset, Direction::Out);
 
-        w
+        // Setup optional pins
+        let busy = self.busy.map(|p| load_pin(p, Direction::Out) ).unwrap();       
+
+        Wrapper::new(spi, cs, busy, (), reset, Delay{})
+    }
+
+    /// Load with ready pin
+    pub fn load_with_ready(&self) -> Wrapper<Spidev, std::io::Error, Pindev, (), Pindev, Pindev, (), Delay> {
+        // Load SPI peripheral
+        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        
+        // Setup CS pin
+        let mut cs = load_pin(self.chip_select, Direction::Out);
+        cs.set_high().unwrap();
+
+        // Setup reset pin
+        let reset = load_pin(self.reset, Direction::Out);
+
+        // Setup optional pins
+        let ready = self.ready.map(|p| load_pin(p, Direction::In) ).unwrap();        
+
+        Wrapper::new(spi, cs, (), ready, reset, Delay{})
+    }
+
+    /// Load with busy and ready pins
+    pub fn load_with_busy_ready(&self) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, Pindev, Pindev, (), Delay> {
+        // Load SPI peripheral
+        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        
+        // Setup CS pin
+        let mut cs = load_pin(self.chip_select, Direction::Out);
+        cs.set_high().unwrap();
+
+        // Setup reset pin
+        let reset = load_pin(self.reset, Direction::Out);
+
+        // Setup optional pins
+        let busy = self.busy.map(|p| load_pin(p, Direction::Out) ).unwrap();     
+        let ready = self.ready.map(|p| load_pin(p, Direction::In) ).unwrap();        
+
+        Wrapper::new(spi, cs, busy, ready, reset, Delay{})
     }
 }
 
