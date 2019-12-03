@@ -7,8 +7,8 @@ pub use structopt::StructOpt;
 pub use simplelog::{LevelFilter, TermLogger};
 
 pub use embedded_hal::digital::v2::{InputPin, OutputPin};
-pub use linux_embedded_hal::sysfs_gpio::Direction;
-pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev};
+pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
+pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiModeFlags};
 
 use crate::wrapper::Wrapper;
 
@@ -52,9 +52,9 @@ pub struct DeviceConfig {
 
 impl DeviceConfig {
     /// Load without busy or ready pins
-    pub fn load_base(&self) -> Wrapper<Spidev, std::io::Error, Pindev, (), (), Pindev, (), Delay> {
+    pub fn load_base(&self) -> Wrapper<Spidev, std::io::Error, Pindev, (), (), Pindev, PinError, Delay> {
         // Load SPI peripheral
-        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        let spi = load_spi(&self.spi, self.baud, SpiModeFlags::SPI_MODE_0);
 
         // Setup CS pin
         let mut cs = load_pin(self.chip_select, Direction::Out);
@@ -69,9 +69,9 @@ impl DeviceConfig {
     /// Load with busy pin
     pub fn load_with_busy(
         &self,
-    ) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Pindev, (), Delay> {
+    ) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, (), Pindev, PinError, Delay> {
         // Load SPI peripheral
-        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        let spi = load_spi(&self.spi, self.baud, SpiModeFlags::SPI_MODE_0);
 
         // Setup CS pin
         let mut cs = load_pin(self.chip_select, Direction::Out);
@@ -89,9 +89,9 @@ impl DeviceConfig {
     /// Load with ready pin
     pub fn load_with_ready(
         &self,
-    ) -> Wrapper<Spidev, std::io::Error, Pindev, (), Pindev, Pindev, (), Delay> {
+    ) -> Wrapper<Spidev, std::io::Error, Pindev, (), Pindev, Pindev, PinError, Delay> {
         // Load SPI peripheral
-        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        let spi = load_spi(&self.spi, self.baud, SpiModeFlags::SPI_MODE_0);
 
         // Setup CS pin
         let mut cs = load_pin(self.chip_select, Direction::Out);
@@ -109,9 +109,9 @@ impl DeviceConfig {
     /// Load with busy and ready pins
     pub fn load_with_busy_ready(
         &self,
-    ) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, Pindev, Pindev, (), Delay> {
+    ) -> Wrapper<Spidev, std::io::Error, Pindev, Pindev, Pindev, Pindev, PinError, Delay> {
         // Load SPI peripheral
-        let spi = load_spi(&self.spi, self.baud, spidev::SPI_MODE_0);
+        let spi = load_spi(&self.spi, self.baud, SpiModeFlags::SPI_MODE_0);
 
         // Setup CS pin
         let mut cs = load_pin(self.chip_select, Direction::Out);
@@ -145,7 +145,7 @@ pub fn load_spi(path: &str, baud: u32, mode: spidev::SpiModeFlags) -> Spidev {
     let mut spi = Spidev::open(path).expect("error opening spi device");
 
     let mut config = spidev::SpidevOptions::new();
-    config.mode(spidev::SPI_MODE_0 | spidev::SPI_NO_CS);
+    config.mode(SpiModeFlags::SPI_MODE_0 | SpiModeFlags::SPI_NO_CS);
     config.max_speed_hz(baud);
     spi.configure(&config)
         .expect("error configuring spi device");
