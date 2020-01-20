@@ -5,7 +5,9 @@
 //! An `embedded_spi::wrapper::Wrapper` type is provided to wrap existing SPI implementations in this
 //! `embedded_spi::Transactional` interface, as well as a set of helpers for C compatibility enabled with
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
-#![no_std]
+
+
+#![cfg_attr(not(feature = "utils"), no_std)]
 
 #[macro_use]
 extern crate log;
