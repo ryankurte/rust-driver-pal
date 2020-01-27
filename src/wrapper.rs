@@ -35,7 +35,7 @@ pub struct Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<u8, Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
@@ -262,16 +262,16 @@ where
     }
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> spi::Transactional
+impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> spi::Transactional<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: spi::Transactional<Error = SpiError>,
+    Spi: spi::Transactional<u8, Error = SpiError>,
 {
     type Error = SpiError;
 
     fn exec<'a, O>(&mut self, operations: O) -> Result<(), Self::Error>
     where
-        O: AsMut<[Operation<'a>]> 
+        O: AsMut<[Operation<'a, u8>]> 
     {
         spi::Transactional::exec(&mut self.spi, operations)
     }

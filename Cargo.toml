@@ -24,5 +24,8 @@ structopt = { version = "0.2.15", optional = true }
 simplelog = { version = "0.5.3", optional = true }
 
 [patch.crates-io]
-embedded-hal = { git = "https://github.com/ryankurte/embedded-hal.git", branch = "feature/spi-i2c-transactions" }
-linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/transactional" }
+#embedded-hal = { git = "https://github.com/ryankurte/embedded-hal.git", branch = "feature/spi-i2c-transactions" }
+#linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/transactional" }
+
+embedded-hal = { path = "../embedded-hal" }
+linux-embedded-hal = { path = "../linux-embedded-hal" }

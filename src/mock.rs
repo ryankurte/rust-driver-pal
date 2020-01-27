@@ -137,8 +137,8 @@ pub enum MockExec {
     SpiTransfer(Vec<u8>, Vec<u8>),
 }
 
-impl<'a> From<&spi::Operation<'a>> for MockExec {
-    fn from(t: &spi::Operation<'a>) -> Self {
+impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
+    fn from(t: &spi::Operation<'a, u8>) -> Self {
         match t {
             spi::Operation::Write(ref d) => {
                 MockExec::SpiWrite(d.to_vec())
@@ -389,12 +389,12 @@ impl spi::Write<u8> for Spi {
     }
 }
 
-impl spi::Transactional for Spi {
+impl spi::Transactional<u8> for Spi {
     type Error = Error<(), ()>;
 
     fn exec<'a, O>(&mut self, mut operations: O) -> Result<(), Self::Error>
     where
-        O: AsMut<[spi::Operation<'a>]> 
+        O: AsMut<[spi::Operation<'a, u8>]> 
     {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;

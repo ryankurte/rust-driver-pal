@@ -56,7 +56,7 @@ pub trait Transactional {
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 }
 
-pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a>;
+pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a, u8>;
 
 /// Busy trait for peripherals that support a busy signal
 pub trait Busy {
