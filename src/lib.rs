@@ -54,26 +54,9 @@ pub trait Transactional {
 
     /// Write writes the prefix buffer then writes the output buffer
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
-
-    /// Transfer writes the outgoing buffer while reading into the incoming buffer
-    /// note that outgoing and incoming must have the same length
-    //fn transfer(&mut self, outgoing: &[u8], incoming: &mut [u8]) -> Result<(), Self::Error>;
-
-    /// Exec allows 'Transaction' objects to be chained together into a single transaction
-    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
 }
 
-/// Transaction enum defines possible SPI transactions
-#[derive(Debug, PartialEq)]
-pub enum Transaction<'a> {
-    // Write the supplied buffer to the peripheral
-    Write(&'a [u8]),
-    // Read from the peripheral into the supplied buffer
-    Read(&'a mut [u8]),
-    // Write the first buffer while reading into the second
-    // This behaviour is actually just the same as Read
-    //Transfer((&'a [u8], &'a mut [u8]))
-}
+pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a>;
 
 /// Busy trait for peripherals that support a busy signal
 pub trait Busy {

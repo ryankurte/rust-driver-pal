@@ -3,10 +3,10 @@
 //! and `embedded_hal::digital::v2::OutputPin` to provide a transactional API for SPI transactions.
 
 use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::{Transfer, Write};
+use embedded_hal::blocking::spi::{self, Transfer, Write, Operation, Transactional as _};
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 
-use crate::{Busy, Error, PinState, Ready, Reset, Transaction, Transactional};
+use crate::{Busy, Error, PinState, Ready, Reset, Transactional};
 
 /// Wrapper wraps an Spi and Pin object to support transactions
 #[derive(Debug, Clone, PartialEq)]
@@ -35,7 +35,7 @@ pub struct Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
@@ -114,7 +114,7 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Transactional
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
@@ -169,33 +169,6 @@ where
             Err(e) => Err(Error::Spi(e)),
             Ok(_) => Ok(()),
         }
-    }
-
-    /// Execute the provided transactions
-    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
-        let mut res = Ok(());
-
-        // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e))?;
-
-        for i in 0..transactions.len() {
-            let mut t = &mut transactions[i];
-
-            res = match &mut t {
-                Transaction::Write(d) => self.spi.write(d),
-                Transaction::Read(d) => self.spi.transfer(d).map(|_r| ()),
-            }
-            .map_err(|e| Error::Spi(e));
-
-            if res.is_err() {
-                break;
-            }
-        }
-
-        // Assert CS
-        self.cs.set_low().map_err(|e| Error::Pin(e))?;
-
-        res
     }
 }
 
@@ -263,7 +236,7 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Transfer<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
 {
     type Error = SpiError;
 
@@ -279,12 +252,27 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Write<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
 {
     type Error = SpiError;
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         trace!("[spi::Write] writing: {:x?}", &data);
         Write::write(&mut self.spi, data)
+    }
+}
+
+impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> spi::Transactional
+    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
+where
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+{
+    type Error = SpiError;
+
+    fn exec<'a, O>(&mut self, mut operations: O) -> Result<(), Self::Error>
+    where
+        O: AsMut<[Operation<'a>]> 
+    {
+        spi::Transactional::exec(&mut self.spi, operations)
     }
 }
