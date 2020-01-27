@@ -3,7 +3,7 @@
 //! and `embedded_hal::digital::v2::OutputPin` to provide a transactional API for SPI transactions.
 
 use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::{self, Transfer, Write, Operation, Transactional as _};
+use embedded_hal::blocking::spi::{self, Transfer, Write, Operation};
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 
 use crate::{Busy, Error, PinState, Ready, Reset, Transactional};
@@ -114,7 +114,7 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Transactional
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
@@ -236,7 +236,7 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Transfer<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+    Spi: Transfer<u8, Error = SpiError>,
 {
     type Error = SpiError;
 
@@ -252,7 +252,7 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Write<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+    Spi: Write<u8, Error = SpiError>,
 {
     type Error = SpiError;
 
@@ -265,11 +265,11 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> spi::Transactional
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError> + spi::Transactional<Error = SpiError>,
+    Spi: spi::Transactional<Error = SpiError>,
 {
     type Error = SpiError;
 
-    fn exec<'a, O>(&mut self, mut operations: O) -> Result<(), Self::Error>
+    fn exec<'a, O>(&mut self, operations: O) -> Result<(), Self::Error>
     where
         O: AsMut<[Operation<'a>]> 
     {

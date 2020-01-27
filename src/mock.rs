@@ -416,10 +416,10 @@ impl spi::Transactional for Spi {
                 let x = e.get(i);
 
                 match (t, x) {
-                    (Transaction::WriteRead(ref t_out, ref mut t_in), Some(MockExec::SpiTransfer(x_out, x_in))) => {
+                    (Transaction::WriteRead(ref _t_out, ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
                         t_in.copy_from_slice(&x_in)
                     },
-                    (Transaction::Write(ref t_out), Some(MockExec::SpiWrite(ref x_out))) => {
+                    (Transaction::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
                         //assert_eq!(t_out, x_out);
                     },
                     _ => (),
