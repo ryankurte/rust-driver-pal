@@ -14,7 +14,7 @@ utils = [ "toml", "structopt", "serde", "simplelog", "linux-embedded-hal" ]
 hal = [ "toml", "structopt", "serde", "simplelog" ]
 hal-cp2130 = [ "driver-cp2130" ]
 hal-linux = [ "linux-embedded-hal" ]
-default = [ "mock", "ffi", "hal", "hal-cp2130" ]
+default = [ "mock", "hal", "hal-cp2130" ]
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
@@ -30,5 +30,5 @@ driver-cp2130 = { path = "../rust-driver-cp2130", optional=true }
 
 [patch.crates-io]
 embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-i2c-transactions" }
-
+#linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/transactional" }
 

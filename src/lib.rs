@@ -49,13 +49,20 @@ pub mod utils;
 pub mod hal;
 
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_hal::blocking::spi::{Write as SpiWrite, Transfer as SpiTransfer, Transactional as SpiTransactional};
+use embedded_hal::blocking::spi;
 
 /// CSManaged marker trait indicates CS is managed by the drivert
 pub trait CSManaged {}
 
 /// HAL trait abstracts required functions for SPI peripherals
-pub trait Hal<SpiError, PinError>: Transactional<Error=SpiError> + Busy<Error=PinError> + Ready<Error=PinError> + Reset<Error=PinError> + DelayMs<u32> + DelayUs<u32> {}
+pub trait Hal<SpiError, PinError>: 
+    spi::Write<u8, Error=SpiError> + 
+    spi::Transfer<u8, Error=SpiError> + 
+    Busy<Error=PinError> + 
+    Ready<Error=PinError> + 
+    Reset<Error=PinError> + 
+    DelayMs<u32> + 
+    DelayUs<u32> {}
 
 /// Transaction trait provides higher level, transaction-based, SPI constructs
 /// These are executed in a single SPI transaction (without de-asserting CS).
@@ -68,23 +75,10 @@ pub trait Transactional {
 
     /// Write writes the prefix buffer then writes the output buffer
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
-
-    /// Transfer writes the outgoing buffer while reading into the incoming buffer
-    /// note that outgoing and incoming must have the same length
-    //fn transfer(&mut self, outgoing: &[u8], incoming: &mut [u8]) -> Result<(), Self::Error>;
-
-    /// Exec allows 'Transaction' objects to be chained together into a single transaction
-    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions
-#[derive(Debug, PartialEq)]
-pub enum Transaction<'a> {
-    // Write the supplied buffer to the peripheral
-    Write(&'a [u8]),
-    // Read from the peripheral into the supplied buffer
-    Read(&'a mut [u8]),
-}
+pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a, u8>;
 
 /// Busy trait for peripherals that support a busy signal
 pub trait Busy {

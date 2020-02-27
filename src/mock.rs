@@ -41,8 +41,10 @@ pub struct Delay {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockTransaction {
     None,
+
     SpiWrite(Id, Vec<u8>, Vec<u8>),
     SpiRead(Id, Vec<u8>, Vec<u8>),
+
     SpiExec(Id, Vec<MockExec>),
 
     Busy(Id, PinState),
@@ -132,21 +134,17 @@ impl MockTransaction {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockExec {
     SpiWrite(Vec<u8>),
-    SpiRead(Vec<u8>),
+    SpiTransfer(Vec<u8>, Vec<u8>),
 }
 
-impl<'a> From<&Transaction<'a>> for MockExec {
-    fn from(t: &Transaction<'a>) -> Self {
+impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
+    fn from(t: &spi::Operation<'a, u8>) -> Self {
         match t {
-            Transaction::Read(ref d) => {
-                let mut v = Vec::with_capacity(d.len());
-                v.copy_from_slice(d);
-                MockExec::SpiRead(v)
+            spi::Operation::Write(ref d) => {
+                MockExec::SpiWrite(d.to_vec())
             }
-            Transaction::Write(ref d) => {
-                let mut v = Vec::with_capacity(d.len());
-                v.copy_from_slice(d);
-                MockExec::SpiWrite(v)
+            spi::Operation::WriteRead(ref o, ref i) => {
+                MockExec::SpiTransfer(o.to_vec(), i.to_vec())
             }
         }
     }
@@ -276,39 +274,6 @@ impl Transactional for Spi {
 
         Ok(())
     }
-
-    /// Execute the provided transactions
-    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-        let index = i.index;
-
-        // Save actual calls
-        let t: Vec<MockExec> = transactions
-            .iter()
-            .map(|ref v| MockExec::from(*v))
-            .collect();
-        i.actual.push(MockTransaction::SpiExec(self.id, t));
-
-        // Load expected reads
-        if let MockTransaction::SpiExec(_id, e) = &i.expected[index] {
-            for i in 0..transactions.len() {
-                let t = &mut transactions[i];
-                let x = e.get(i);
-
-                match (t, x) {
-                    (Transaction::Read(ref mut v), Some(MockExec::SpiRead(d))) => {
-                        v.copy_from_slice(&d)
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
-    }
 }
 
 impl Busy for Spi {
@@ -416,6 +381,51 @@ impl spi::Write<u8> for Spi {
 
         // Save actual call
         i.actual.push(MockTransaction::Write(self.id, data.into()));
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
+    }
+}
+
+impl spi::Transactional<u8> for Spi {
+    type Error = Error<(), ()>;
+
+    fn exec<'a, O>(&mut self, mut operations: O) -> Result<(), Self::Error>
+    where
+        O: AsMut<[spi::Operation<'a, u8>]> 
+    {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // Save actual calls
+        let t: Vec<MockExec> = operations
+            .as_mut()
+            .iter()
+            .map(|ref v| MockExec::from(*v))
+            .collect();
+        i.actual.push(MockTransaction::SpiExec(self.id, t));
+
+        let transactions = operations.as_mut();
+
+        // Load expected reads
+        if let MockTransaction::SpiExec(_id, e) = &i.expected[index] {
+            for i in 0..transactions.len() {
+                let t = &mut transactions[i];
+                let x = e.get(i);
+
+                match (t, x) {
+                    (Transaction::WriteRead(ref _t_out, ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
+                        t_in.copy_from_slice(&x_in)
+                    },
+                    (Transaction::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
+                        //assert_eq!(t_out, x_out);
+                    },
+                    _ => (),
+                }
+            }
+        }
 
         // Update expectation index
         i.index += 1;

@@ -5,7 +5,7 @@ use driver_cp2130::prelude::*;
 
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use embedded_hal::digital::v2::{InputPin as _, OutputPin as _};
-use embedded_hal::blocking::spi::{Write as SpiWrite, Transfer as SpiTransfer, Transactional as SpiTransactional};
+use embedded_hal::blocking::spi::{self};
 
 use crate::*;
 use super::{Error, SpiConfig, PinConfig};
@@ -128,7 +128,7 @@ impl <'a> DelayUs<u32> for Cp2130Driver<'a> {
 }
 
 
-impl <'a> SpiTransfer<u8> for Cp2130Driver<'a>
+impl <'a> spi::Transfer<u8> for Cp2130Driver<'a>
 {
     type Error = Error;
 
@@ -137,7 +137,8 @@ impl <'a> SpiTransfer<u8> for Cp2130Driver<'a>
         Ok(r)
     }
 }
-impl <'a> SpiWrite<u8> for Cp2130Driver<'a>
+
+impl <'a> spi::Write<u8> for Cp2130Driver<'a>
 {
     type Error = Error;
 
@@ -147,9 +148,14 @@ impl <'a> SpiWrite<u8> for Cp2130Driver<'a>
     }
 }
 
-#[cfg(nope)]
-impl <'a> Transactional for Cp2130Driver<'a> {
+impl <'a> spi::Transactional<u8> for Cp2130Driver<'a> {
     type Error = Error;
 
+    fn exec<'b, O>(&mut self, operations: O) -> Result<(), Self::Error>
+    where
+        O: AsMut<[spi::Operation<'b, u8>]> 
+    {
+        crate::wrapper::spi_exec(self, operations)
+    }
     
 }
