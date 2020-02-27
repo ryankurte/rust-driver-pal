@@ -11,7 +11,10 @@ license = "MIT"
 mock = []
 ffi = [ "libc" ]
 utils = [ "toml", "structopt", "serde", "simplelog", "linux-embedded-hal" ]
-default = [ "mock", "ffi", "utils" ]
+hal = [ "toml", "structopt", "serde", "simplelog" ]
+hal-cp2130 = [ "driver-cp2130" ]
+hal-linux = [ "linux-embedded-hal" ]
+default = [ "mock", "ffi", "hal", "hal-cp2130" ]
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
@@ -22,3 +25,10 @@ serde = { version = "1.0.91", features = ["derive"], optional = true }
 toml = { version = "0.5.1", optional = true }
 structopt = { version = "0.2.15", optional = true }
 simplelog = { version = "0.5.3", optional = true }
+#driver-cp2130 = { version = "0.3.1", optional = true }
+driver-cp2130 = { path = "../rust-driver-cp2130", optional=true }
+
+[patch.crates-io]
+embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-i2c-transactions" }
+
+

@@ -37,11 +37,25 @@ extern crate toml;
 #[cfg(feature = "utils")]
 extern crate simplelog;
 
-#[cfg(feature = "utils")]
+#[cfg(feature = "hal-linux")]
 extern crate linux_embedded_hal;
+
+#[cfg(feature = "hal-cp2130")]
+extern crate driver_cp2130;
 
 #[cfg(feature = "utils")]
 pub mod utils;
+
+pub mod hal;
+
+use embedded_hal::blocking::delay::{DelayMs, DelayUs};
+use embedded_hal::blocking::spi::{Write as SpiWrite, Transfer as SpiTransfer, Transactional as SpiTransactional};
+
+/// CSManaged marker trait indicates CS is managed by the drivert
+pub trait CSManaged {}
+
+/// HAL trait abstracts required functions for SPI peripherals
+pub trait Hal<SpiError, PinError>: Transactional<Error=SpiError> + Busy<Error=PinError> + Ready<Error=PinError> + Reset<Error=PinError> + DelayMs<u32> + DelayUs<u32> {}
 
 /// Transaction trait provides higher level, transaction-based, SPI constructs
 /// These are executed in a single SPI transaction (without de-asserting CS).
@@ -70,9 +84,6 @@ pub enum Transaction<'a> {
     Write(&'a [u8]),
     // Read from the peripheral into the supplied buffer
     Read(&'a mut [u8]),
-    // Write the first buffer while reading into the second
-    // This behaviour is actually just the same as Read
-    //Transfer((&'a [u8], &'a mut [u8]))
 }
 
 /// Busy trait for peripherals that support a busy signal
@@ -113,3 +124,4 @@ pub enum PinState {
     Low,
     High,
 }
+
