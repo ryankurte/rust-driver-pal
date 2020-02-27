@@ -82,13 +82,13 @@ pub fn load_hal(config: &DeviceConfig) -> Result<Box<dyn Hal<HalError>>, HalErro
             return Err(HalError::InvalidConfig)
         },
         (Some(s), None) => {
-            
+            unimplemented!()
         },
         (None, Some(i)) => {
-            let d = cp2130::Cp2130Driver::new(*i, &config.spi, &config.pins)?;
-            return Ok(Box::new(d))
-            //let w: Wrapper = Wrapper::new(d, d.chip_select.take().unwrap());
-            //return Ok(Box::new(w))
+            let mut d = cp2130::Cp2130Driver::new(*i, &config.spi, &config.pins)?;
+            let cs = d.chip_select.take().unwrap();
+            let w = Wrapper::new(d, cs);
+            return Ok(Box::new(w))
         },
         _ => {
             error!("No SPI configuration provided");

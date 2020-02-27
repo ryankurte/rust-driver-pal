@@ -21,6 +21,7 @@ impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
     }
 }
 
+/// CP2130 `Hal` implementation
 pub struct Cp2130Driver<'a> {
     _cp2130: Cp2130<'a>,
 
