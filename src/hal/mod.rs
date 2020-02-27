@@ -6,7 +6,7 @@ use serde::{Deserialize};
 use structopt::StructOpt;
 
 pub mod error;
-pub use error::Error;
+pub use error::HalError;
 
 #[cfg(feature = "hal-linux")]
 pub mod linux;
@@ -14,8 +14,8 @@ pub mod linux;
 #[cfg(feature = "hal-cp2130")]
 pub mod cp2130;
 
-
 use crate::*;
+use crate::wrapper::Wrapper;
 
 
 /// Generic device configuration structure for SPI drivers
@@ -74,26 +74,27 @@ pub struct PinConfig {
 }
 
 /// Load a hal instance from the provided configuration
-pub fn load_hal(config: &DeviceConfig) -> Result<Box<dyn Hal<Error, Error>>, Error> {
+pub fn load_hal(config: &DeviceConfig) -> Result<Box<dyn Hal<HalError>>, HalError> {
 
     match (&config.spi_dev, &config.cp2130_dev) {
         (Some(_), Some(_)) => {
             error!("Only one of spi_dev and cp2130_dev may be specified");
-            return Err(Error::InvalidConfig)
+            return Err(HalError::InvalidConfig)
         },
         (Some(s), None) => {
             
         },
         (None, Some(i)) => {
             let d = cp2130::Cp2130Driver::new(*i, &config.spi, &config.pins)?;
-            //return Ok(Box::new(d))
+            return Ok(Box::new(d))
+            //let w: Wrapper = Wrapper::new(d, d.chip_select.take().unwrap());
+            //return Ok(Box::new(w))
         },
-        (_) => {
+        _ => {
             error!("No SPI configuration provided");
-            return Err(Error::InvalidConfig)
+            return Err(HalError::InvalidConfig)
         }
     }
-
 
     unimplemented!()
 }

@@ -2,12 +2,11 @@
 //! This provides a `Wrapper` type that is generic over an `embedded_hal::blocking::spi`
 //! and `embedded_hal::digital::v2::OutputPin` to provide a transactional API for SPI transactions.
 
-use core::ops::{Deref, DerefMut};
-
 use embedded_hal::blocking::spi::{self, Transfer, Write, Operation};
 use embedded_hal::digital::v2::{OutputPin};
+use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
-use crate::{Busy, Error, PinState, Ready, Reset};
+use crate::{Busy, Error, PinState, Ready, Reset, ManagedChipSelect};
 
 /// Wrapper provides a wrapper around an SPI object with Chip Select management
 pub struct Wrapper<Inner, SpiError, Cs, PinError> {
@@ -17,9 +16,11 @@ pub struct Wrapper<Inner, SpiError, Cs, PinError> {
     _e: std::marker::PhantomData<Error<SpiError, PinError>>,
 }
 
-impl <Inner, SpiError, Cs, PinError> crate::CSManaged for Wrapper<Inner, SpiError, Cs, PinError> {}
+impl <Inner, SpiError, Cs, PinError> ManagedChipSelect for Wrapper<Inner, SpiError, Cs, PinError> {}
 
 impl <Inner, SpiError, Cs, PinError> Wrapper<Inner, SpiError, Cs, PinError>  {
+
+    /// Create a new wrapper with the provided chip select pin
     pub fn new(inner: Inner, cs: Cs) -> Self {
         Self{inner, cs, _e: std::marker::PhantomData}
     }
@@ -33,7 +34,8 @@ impl <Inner, SpiError, Cs, PinError> Wrapper<Inner, SpiError, Cs, PinError>  {
 }
 
 /// Derefs to allow accessing methods on inner
-impl <Inner, SpiError, Cs, PinError> Deref for Wrapper<Inner, SpiError, Cs, PinError> {
+#[cfg(feature="deref")]
+impl <Inner, SpiError, Cs, PinError> core::ops::Deref for Wrapper<Inner, SpiError, Cs, PinError> {
     type Target = Inner;
 
     fn deref(&self) -> &Self::Target {
@@ -41,7 +43,8 @@ impl <Inner, SpiError, Cs, PinError> Deref for Wrapper<Inner, SpiError, Cs, PinE
     } 
 }
 
-impl <Inner, SpiError, Cs, PinError> DerefMut for Wrapper<Inner, SpiError, Cs, PinError> {
+#[cfg(feature="deref")]
+impl <Inner, SpiError, Cs, PinError> core::ops::DerefMut for Wrapper<Inner, SpiError, Cs, PinError> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
      } 
@@ -116,9 +119,7 @@ where
 
     /// Set the reset pin state
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
-        Reset::set_reset(&mut self.inner, state);
-
-        Ok(())
+        Reset::set_reset(&mut self.inner, state).map_err(Error::Pin)
     }
 }
 
@@ -148,6 +149,25 @@ where
     }
 }
 
+impl <Inner, SpiError, Cs, PinError> DelayMs<u32> for Wrapper<Inner, SpiError, Cs, PinError> 
+where
+    Inner: Ready<Error=PinError>,
+{
+    fn delay_ms(&mut self, _ms: u32) {
+        unimplemented!();
+    }
+}
+
+
+impl <Inner, SpiError, Cs, PinError> DelayUs<u32> for Wrapper<Inner, SpiError, Cs, PinError> 
+where
+    Inner: Ready<Error=PinError>,
+{
+    fn delay_us(&mut self, _us: u32) {
+        unimplemented!();
+    }
+}
+
 
 /// Helper to execute transactions over a non-transactional SPI device
 pub fn spi_exec<'a, Spi, SpiError, Operations>(spi: &mut Spi, mut operations: Operations) -> Result<(), SpiError> where
@@ -161,14 +181,8 @@ pub fn spi_exec<'a, Spi, SpiError, Operations>(spi: &mut Spi, mut operations: Op
 
         match &mut t {
             Operation::Write(d) => spi.write(d)?,
-            Operation::WriteRead(d_out, d_in) => {
-                // Write output data to mutable input vec
-                d_in.copy_from_slice(d_out);
-                // Execute transfer
-                spi.transfer(d_in)?;
-            },
+            Operation::WriteRead(d) => spi.transfer(d).map(|_| ())?,
         }
-
     }
     Ok(())
 }

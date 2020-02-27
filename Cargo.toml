@@ -29,6 +29,7 @@ simplelog = { version = "0.5.3", optional = true }
 driver-cp2130 = { path = "../rust-driver-cp2130", optional=true }
 
 [patch.crates-io]
-embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-i2c-transactions" }
+#embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-i2c-transactions" }
 #linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/transactional" }
 
+embedded-hal = { path = "../embedded-hal" }

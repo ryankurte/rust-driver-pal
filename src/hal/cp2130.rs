@@ -8,11 +8,10 @@ use embedded_hal::digital::v2::{InputPin as _, OutputPin as _};
 use embedded_hal::blocking::spi::{self};
 
 use crate::*;
-use super::{Error, SpiConfig, PinConfig};
-
+use super::{HalError, SpiConfig, PinConfig};
 
 impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
-    type Error = Error;
+    type Error = HalError;
 
     fn try_into(self) -> Result<driver_cp2130::SpiConfig, Self::Error> {
         Ok(driver_cp2130::SpiConfig {
@@ -25,17 +24,18 @@ impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
 pub struct Cp2130Driver<'a> {
     _cp2130: Cp2130<'a>,
 
-    spi: Spi<'a>,
+    pub spi: Spi<'a>,
 
-    chip_select: OutputPin<'a>,
-    reset: OutputPin<'a>,
-    busy: Option<InputPin<'a>>,
-    ready: Option<InputPin<'a>>,
+    pub chip_select: Option<OutputPin<'a>>,
+    pub reset: Option<OutputPin<'a>>,
+    pub busy: Option<InputPin<'a>>,
+    pub ready: Option<InputPin<'a>>,
 }
+
 
 impl <'a>Cp2130Driver<'a> {
     /// Load base CP2130 instance
-    pub fn new(index: usize, spi: &SpiConfig, pins: &PinConfig) -> Result<Self, Error> {
+    pub fn new(index: usize, spi: &SpiConfig, pins: &PinConfig) -> Result<Self, HalError> {
         // Fetch the matching device and descriptor
         let (device, descriptor) = Manager::device(Filter::default(), index)?;
 
@@ -66,22 +66,46 @@ impl <'a>Cp2130Driver<'a> {
         Ok(Self{
             _cp2130: cp2130,
             spi,
-            chip_select,
-            reset,
+            chip_select: Some(chip_select),
+            reset: Some(reset),
             busy,
             ready,
         })
     }
 }
 
+impl <'a> ChipSelect for Cp2130Driver<'a> {
+    type Error = HalError;
+
+    /// Set the cs pin state
+    fn set_cs(&mut self, state: PinState) -> Result<(), Self::Error> {
+        let p = match self.chip_select.as_mut() {
+            Some(v) => v,
+            None => return Err(HalError::NoCsPin),
+        };
+
+        match state {
+            PinState::High => p.set_high()?,
+            PinState::Low => p.set_low()?,
+        };
+
+        Ok(())
+    }
+}
+
 impl <'a> Reset for Cp2130Driver<'a> {
-    type Error = Error;
+    type Error = HalError;
 
     /// Set the reset pin state
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
+        let p = match self.reset.as_mut() {
+            Some(v) => v,
+            None => return Err(HalError::NoResetPin),
+        };
+
         match state {
-            PinState::High => self.reset.set_high()?,
-            PinState::Low => self.reset.set_low()?,
+            PinState::High => p.set_high()?,
+            PinState::Low => p.set_low()?,
         };
 
         Ok(())
@@ -89,11 +113,16 @@ impl <'a> Reset for Cp2130Driver<'a> {
 }
 
 impl <'a> Busy for Cp2130Driver<'a> {
-    type Error = Error;
+    type Error = HalError;
 
     /// Fetch the busy pin state
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
-        let v = self.busy.as_ref().unwrap().is_high()?;
+        let p = match self.busy.as_ref() {
+            Some(v) => v,
+            None => return Err(HalError::NoBusyPin),
+        };
+        
+        let v = p.is_high()?;
         match v {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
@@ -102,11 +131,16 @@ impl <'a> Busy for Cp2130Driver<'a> {
 }
 
 impl <'a> Ready for Cp2130Driver<'a> {
-    type Error = Error;
+    type Error = HalError;
 
     /// Fetch the ready pin state
     fn get_ready(&mut self) -> Result<PinState, Self::Error> {
-        let v = self.ready.as_ref().unwrap().is_high()?;
+        let p = match self.ready.as_ref() {
+            Some(v) => v,
+            None => return Err(HalError::NoReadyPin),
+        };
+
+        let v = p.is_high()?;
         match v {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
@@ -130,7 +164,7 @@ impl <'a> DelayUs<u32> for Cp2130Driver<'a> {
 
 impl <'a> spi::Transfer<u8> for Cp2130Driver<'a>
 {
-    type Error = Error;
+    type Error = HalError;
 
     fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let r = self.spi.transfer(data)?;
@@ -140,7 +174,7 @@ impl <'a> spi::Transfer<u8> for Cp2130Driver<'a>
 
 impl <'a> spi::Write<u8> for Cp2130Driver<'a>
 {
-    type Error = Error;
+    type Error = HalError;
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         self.spi.write(data)?;
@@ -149,13 +183,12 @@ impl <'a> spi::Write<u8> for Cp2130Driver<'a>
 }
 
 impl <'a> spi::Transactional<u8> for Cp2130Driver<'a> {
-    type Error = Error;
+    type Error = HalError;
 
     fn exec<'b, O>(&mut self, operations: O) -> Result<(), Self::Error>
     where
         O: AsMut<[spi::Operation<'b, u8>]> 
     {
         crate::wrapper::spi_exec(self, operations)
-    }
-    
+    }   
 }

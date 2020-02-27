@@ -14,8 +14,6 @@ extern crate log;
 
 extern crate embedded_hal;
 
-pub mod wrapper;
-
 #[cfg(feature = "mock")]
 extern crate std;
 
@@ -43,35 +41,64 @@ extern crate linux_embedded_hal;
 #[cfg(feature = "hal-cp2130")]
 extern crate driver_cp2130;
 
+
 #[cfg(feature = "utils")]
 pub mod utils;
 
 pub mod hal;
 
+pub mod wrapper;
+
+
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use embedded_hal::blocking::spi;
 
-/// CSManaged marker trait indicates CS is managed by the drivert
-pub trait CSManaged {}
+/// ManagedChipSelect marker trait indicates CS is managed by the drivert
+pub trait ManagedChipSelect {}
 
-/// HAL trait abstracts required functions for SPI peripherals
-pub trait Hal<SpiError, PinError>: 
-    spi::Write<u8, Error=SpiError> + 
-    spi::Transfer<u8, Error=SpiError> + 
-    Busy<Error=PinError> + 
-    Ready<Error=PinError> + 
-    Reset<Error=PinError> + 
+/// HAL trait abstracts commonly required functions for SPI peripherals
+pub trait Hal<E>:
+    PrefixWrite<Error=E> +
+    PrefixRead<Error=E> +
+
+    spi::Write<u8, Error=E> + 
+    spi::Transfer<u8, Error=E> + 
+    
+    Busy<Error=E> + 
+    Ready<Error=E> + 
+    Reset<Error=E> + 
+    
     DelayMs<u32> + 
     DelayUs<u32> {}
 
-/// Transaction trait provides higher level, transaction-based, SPI constructs
-/// These are executed in a single SPI transaction (without de-asserting CS).
-pub trait Transactional {
+/// Default HAL trait impl over component traits
+impl <T, E> Hal<E> for T where T: 
+    PrefixWrite<Error=E> +
+    PrefixRead<Error=E> +
+
+    spi::Write<u8, Error=E> + 
+    spi::Transfer<u8, Error=E> + 
+    
+    Busy<Error=E> + 
+    Ready<Error=E> + 
+    Reset<Error=E> + 
+    
+    DelayMs<u32> + 
+    DelayUs<u32> {}
+
+
+/// PrefixRead trait provides a higher level, write then read function
+pub trait PrefixRead {
     type Error;
 
     /// Read writes the prefix buffer then reads into the input buffer
     /// Note that the values of the input buffer will also be output, because, SPI...
     fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
+}
+
+/// PrefixWrite trait provides higher level, writye then write function
+pub trait PrefixWrite {
+    type Error;
 
     /// Write writes the prefix buffer then writes the output buffer
     fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
@@ -79,6 +106,14 @@ pub trait Transactional {
 
 /// Transaction enum defines possible SPI transactions
 pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a, u8>;
+
+/// Chip Select trait for peripherals supporting manual chip select
+pub trait ChipSelect {
+    type Error;
+
+    /// Set the cs pin state if available
+    fn set_cs(&mut self, state: PinState) -> Result<(), Self::Error>;
+}
 
 /// Busy trait for peripherals that support a busy signal
 pub trait Busy {
@@ -95,6 +130,7 @@ pub trait Reset {
     /// Set the reset pin state if available
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error>;
 }
+
 
 /// Ready trait for peripherals that support a ready signal (or IRQ)
 pub trait Ready {
@@ -119,3 +155,42 @@ pub enum PinState {
     High,
 }
 
+/// Automatic `embedded_spi::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+impl <T, E> PrefixWrite for T 
+where
+    T: spi::Transactional<u8, Error=E>, 
+{
+    type Error = E;
+
+    /// Write data with the specified prefix
+    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
+        let mut ops = [
+            spi::Operation::Write(prefix),
+            spi::Operation::Write(data),
+        ];
+
+        self.exec(&mut ops)?;
+        
+        Ok(())
+    }
+}
+
+/// Automatic `embedded_spi::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+impl <T, E> PrefixRead for T 
+where
+    T: spi::Transactional<u8, Error=E>, 
+{
+    type Error = E;
+
+    /// Read data with the specified prefix
+    fn spi_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
+        let mut ops = [
+            spi::Operation::Write(prefix),
+            spi::Operation::WriteRead(data),
+        ];
+
+        self.exec(&mut ops)?;
+        
+        Ok(())
+    }
+}

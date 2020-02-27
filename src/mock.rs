@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 use std::{panic, vec};
 
-use crate::{Busy, Error, PinState, Ready, Reset, Transaction, Transactional};
+use crate::{Busy, Error, PinState, Ready, Reset};
 
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::spi;
@@ -143,8 +143,8 @@ impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
             spi::Operation::Write(ref d) => {
                 MockExec::SpiWrite(d.to_vec())
             }
-            spi::Operation::WriteRead(ref o, ref i) => {
-                MockExec::SpiTransfer(o.to_vec(), i.to_vec())
+            spi::Operation::WriteRead(ref d) => {
+                MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
             }
         }
     }
@@ -225,54 +225,6 @@ impl Mock {
     pub fn finalise(&self) {
         let mut i = self.inner.lock().unwrap();
         i.finalise();
-    }
-}
-
-impl Transactional for Spi {
-    type Error = Error<(), ()>;
-
-    /// Read data from a specified address
-    /// This consumes the provided input data array and returns a reference to this on success
-    fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-        let index = i.index;
-
-        // Copy read data from expectation
-        match &i.expected.get(index) {
-            Some(MockTransaction::SpiRead(_id, _outgoing, incoming)) => {
-                data.copy_from_slice(&incoming);
-            }
-            _ => (),
-        };
-
-        // Save actual call
-        i.actual.push(MockTransaction::SpiRead(
-            self.id,
-            prefix.into(),
-            data.into(),
-        ));
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
-    }
-
-    /// Write data to a specified register address
-    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-
-        // Save actual call
-        i.actual.push(MockTransaction::SpiWrite(
-            self.id,
-            prefix.into(),
-            data.into(),
-        ));
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
     }
 }
 
@@ -416,10 +368,10 @@ impl spi::Transactional<u8> for Spi {
                 let x = e.get(i);
 
                 match (t, x) {
-                    (Transaction::WriteRead(ref _t_out, ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
+                    (spi::Operation::WriteRead(ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
                         t_in.copy_from_slice(&x_in)
                     },
-                    (Transaction::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
+                    (spi::Operation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
                         //assert_eq!(t_out, x_out);
                     },
                     _ => (),
