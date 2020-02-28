@@ -7,7 +7,7 @@
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
 
 
-#![cfg_attr(not(feature = "utils"), no_std)]
+#![cfg_attr(not(feature = "hal"), no_std)]
 
 #[macro_use]
 extern crate log;

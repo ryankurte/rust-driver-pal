@@ -1,43 +1,45 @@
 
-use std::fs::read_to_string;
-use std::string::{String, ToString};
+use embedded_hal::blocking::spi;
 
-use serde::{de::DeserializeOwned, Deserialize};
-use structopt::StructOpt
-;
-pub use simplelog::{LevelFilter, TermLogger};
-
-pub use embedded_hal::digital::v2::{InputPin, OutputPin};
-
-use super::{HalError, HalPins, SpiConfig, PinConfig, Error};
+use super::{HalError, HalPin, HalPins, MaybeGpio, SpiConfig, PinConfig};
 
 extern crate linux_embedded_hal;
 pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
 pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiModeFlags};
 
-pub struct LinuxDevice {
-    spi_dev: Spidev,
+pub struct LinuxDriver {
+    spi: Spidev,
 }
 
-impl LinuxDevice {
+impl LinuxDriver {
     /// Load an SPI device using the provided configuration
     pub fn new(path: &str, spi: &SpiConfig) -> Result<Self, HalError> {
+        let mut flags = match spi.mode {
+            0 => SpiModeFlags::SPI_MODE_0,
+            1 => SpiModeFlags::SPI_MODE_1,
+            2 => SpiModeFlags::SPI_MODE_2,
+            3 => SpiModeFlags::SPI_MODE_3,
+            _ => return Err(HalError::InvalidSpiMode),
+        };
+
+        flags |= SpiModeFlags::SPI_NO_CS;
+
         debug!(
             "Conecting to spi: {} at {} baud with mode: {:?}",
-            path, baud, mode
+            path, spi.baud, flags
         );
 
-        let mut spi_dev = load_spi(path, spi.baud, spi.mode)?;
+        let spi = load_spi(path, spi.baud, flags)?;
 
-        Ok(Self{
-            spi_dev,
-        })
+        Ok(Self{ spi })
     }
 
-    pub fn load_pins(&mut self, pin: &PinConfig) -> Result<HalPins<Pindev, Pindev>, HalError> {
-        let chip_select = load_pin(pins.chip_select as u8, Direction::Out)?;
+    /// Load pins using the provided config
+    pub fn load_pins(&mut self, pins: &PinConfig) -> Result<HalPins<Pindev, Pindev>, HalError> {
 
-        let reset = load_pin(pins.reset as u8, Direction::Out)?;
+        let chip_select = load_pin(pins.chip_select, Direction::Out)?;
+
+        let reset = load_pin(pins.reset, Direction::Out)?;
 
         let busy = match pins.busy {
             Some(p) => Some(load_pin(p, Direction::In)?),
@@ -50,16 +52,46 @@ impl LinuxDevice {
         };
 
         let pins = HalPins{
-            cs: Cp2130OutputPin(chip_select),
-            reset: Cp2130OutputPin(reset),
-            busy: MaybeGpio( busy.map(|p| Cp2130InputPin(p)) ),
-            ready: MaybeGpio( ready.map(|p| Cp2130InputPin(p)) ),
+            cs: HalPin(chip_select),
+            reset: HalPin(reset),
+            busy: MaybeGpio( busy.map(|p| HalPin(p)) ),
+            ready: MaybeGpio( ready.map(|p| HalPin(p)) ),
         };
         
         Ok(pins)
     }
 }
 
+impl spi::Transfer<u8> for LinuxDriver
+{
+    type Error = HalError;
+
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        let r = self.spi.transfer(data)?;
+        Ok(r)
+    }
+}
+
+impl spi::Write<u8> for LinuxDriver
+{
+    type Error = HalError;
+
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        self.spi.write(data)?;
+        Ok(())
+    }
+}
+
+impl spi::Transactional<u8> for LinuxDriver {
+    type Error = HalError;
+
+    fn exec<'b, O>(&mut self, operations: O) -> Result<(), Self::Error>
+    where
+        O: AsMut<[spi::Operation<'b, u8>]> 
+    {
+        crate::wrapper::spi_exec(self, operations)
+    }   
+}
 
 
 /// Load an SPI device using the provided configuration
@@ -69,15 +101,14 @@ fn load_spi(path: &str, baud: u32, mode: spidev::SpiModeFlags) -> Result<Spidev,
         path, baud, mode
     );
 
-    let mut spi = Spidev::open(path).expect("error opening spi device");
+    let mut spi = Spidev::open(path)?;
 
     let mut config = spidev::SpidevOptions::new();
     config.mode(SpiModeFlags::SPI_MODE_0 | SpiModeFlags::SPI_NO_CS);
     config.max_speed_hz(baud);
-    spi.configure(&config)
-        .expect("error configuring spi device");
+    spi.configure(&config)?;
 
-    spi
+    Ok(spi)
 }
 
 /// Load a Pin using the provided configuration
@@ -88,9 +119,8 @@ fn load_pin(index: u64, direction: Direction) -> Result<Pindev, HalError> {
     );
 
     let p = Pindev::new(index);
-    p.export().expect("error exporting cs pin");
-    p.set_direction(direction)
-        .expect("error setting cs pin direction");
+    p.export()?;
+    p.set_direction(direction)?;
 
-    p
+    Ok(p)
 }

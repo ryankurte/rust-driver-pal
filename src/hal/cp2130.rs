@@ -3,7 +3,6 @@ use std::convert::{TryFrom, TryInto};
 
 use driver_cp2130::prelude::*;
 
-use embedded_hal::digital::v2::{self as digital};
 use embedded_hal::blocking::spi::{self};
 
 use crate::*;

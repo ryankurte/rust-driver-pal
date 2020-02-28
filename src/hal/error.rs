@@ -3,6 +3,7 @@
 #[derive(Debug)]
 pub enum HalError  {
     InvalidConfig,
+    InvalidSpiMode,
     NoPin,
     
     #[cfg(feature = "hal-cp2130")]
@@ -32,6 +33,6 @@ impl From<std::io::Error> for HalError {
 #[cfg(feature = "hal-linux")]
 impl From<linux_embedded_hal::sysfs_gpio::Error> for HalError {
     fn from(e: linux_embedded_hal::sysfs_gpio::Error) -> Self {
-        Self::Pin(e)
+        Self::Sysfs(e)
     }
 }

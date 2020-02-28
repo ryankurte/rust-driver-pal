@@ -7,6 +7,8 @@ use structopt::StructOpt;
 
 use embedded_hal::digital::v2::{self as digital, InputPin, OutputPin};
 
+pub use simplelog::{LevelFilter, TermLogger};
+
 pub mod error;
 pub use error::HalError;
 
@@ -75,9 +77,16 @@ pub struct PinConfig {
     ready: Option<u64>,
 }
 
-pub type HalInst = Box<dyn Hal<Error<HalError, HalError>>>;
-//pub type HalInst = Box<dyn Hal<HalError>>;
+/// Log configuration object
+#[derive(Debug, StructOpt)]
+pub struct LogConfig {
+    #[structopt(long = "log-level", default_value = "info")]
+    /// Enable verbose logging
+    level: LevelFilter,
+}
 
+/// Dynamic hal instance type
+pub type HalInst = Box<dyn Hal<Error<HalError, HalError>>>;
 
 /// Load a hal instance from the provided configuration
 pub fn load_hal(config: &DeviceConfig) -> Result<HalInst, HalError> {
@@ -88,9 +97,15 @@ pub fn load_hal(config: &DeviceConfig) -> Result<HalInst, HalError> {
             error!("Only one of spi_dev and cp2130_dev may be specified");
             return Err(HalError::InvalidConfig)
         },
-        (Some(_s), None) => {
-            unimplemented!()
+        #[cfg(feature = "hal-linux")]
+        (Some(s), None) => {
+            let mut spi = linux::LinuxDriver::new(s, &config.spi)?;
+            let HalPins{cs, reset, busy, ready} = spi.load_pins(&config.pins)?;
+
+            let w = Wrapper::new(spi, cs, reset, busy, ready, HalDelay);
+            return Ok(Box::new(w))
         },
+        #[cfg(feature = "hal-cp2130")]
         (None, Some(i)) => {
             let mut spi = cp2130::Cp2130Driver::new(*i, &config.spi)?;
             let HalPins{cs, reset, busy, ready} = spi.load_pins(&config.pins)?;
@@ -99,11 +114,26 @@ pub fn load_hal(config: &DeviceConfig) -> Result<HalInst, HalError> {
             return Ok(Box::new(w))
         },
         _ => {
-            error!("No SPI configuration provided");
+            error!("No SPI configuration provided or no matching implementation found");
             return Err(HalError::InvalidConfig)
         }
     }
 }
+
+/// Initialise logging
+pub fn init_logging(level: LevelFilter) {
+    TermLogger::init(level, simplelog::Config::default()).unwrap();
+}
+
+/// Load a configuration file
+pub fn load_config<T>(file: &str) -> T
+where
+    T: serde::de::DeserializeOwned,
+{
+    let d = std::fs::read_to_string(file).expect("error reading file");
+    toml::from_str(&d).expect("error parsing toml file")
+}
+
 
 /// HalPins object for conveniently returning bound pins
 pub struct HalPins<OutputPin, InputPin> where
