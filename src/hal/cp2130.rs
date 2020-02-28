@@ -7,7 +7,7 @@ use embedded_hal::digital::v2::{self as digital};
 use embedded_hal::blocking::spi::{self};
 
 use crate::*;
-use super::{HalPins, HalError, SpiConfig, PinConfig, MaybeGpio};
+use super::{HalPins, HalPin, HalError, SpiConfig, PinConfig, MaybeGpio};
 
 /// Convert a generic SPI config object into a CP2130 object
 impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
@@ -48,7 +48,7 @@ impl <'a>Cp2130Driver<'a> {
     }
 
     /// Fetch pin objects from the driver
-    pub fn load_pins(&mut self, pins: &PinConfig) -> Result<HalPins<Cp2130OutputPin<'a>, Cp2130InputPin<'a>>, HalError> {
+    pub fn load_pins(&mut self, pins: &PinConfig) -> Result<HalPins<OutputPin<'a>, InputPin<'a>>, HalError> {
         // Connect pins
 
         let chip_select = self.cp2130.gpio_out(pins.chip_select as u8, GpioMode::PushPull, GpioLevel::High)?;
@@ -66,10 +66,10 @@ impl <'a>Cp2130Driver<'a> {
         };
 
         let pins = HalPins{
-            cs: Cp2130OutputPin(chip_select),
-            reset: Cp2130OutputPin(reset),
-            busy: MaybeGpio( busy.map(|p| Cp2130InputPin(p)) ),
-            ready: MaybeGpio( ready.map(|p| Cp2130InputPin(p)) ),
+            cs: HalPin(chip_select),
+            reset: HalPin(reset),
+            busy: MaybeGpio( busy.map(|p| HalPin(p)) ),
+            ready: MaybeGpio( ready.map(|p| HalPin(p)) ),
         };
         
         Ok(pins)
@@ -105,40 +105,4 @@ impl <'a> spi::Transactional<u8> for Cp2130Driver<'a> {
     {
         crate::wrapper::spi_exec(self, operations)
     }   
-}
-
-
-pub struct Cp2130OutputPin<'a> (OutputPin<'a>);
-
-impl <'a> digital::OutputPin for Cp2130OutputPin<'a> 
-{
-    type Error = HalError;
-
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.0.set_high()?;
-        Ok(())
-    }
-
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.0.set_low()?;
-        Ok(())
-    }
-}
-
-
-pub struct Cp2130InputPin<'a> (InputPin<'a>);
-
-impl <'a> digital::InputPin for Cp2130InputPin<'a> 
-{
-    type Error = HalError;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        let r = self.0.is_high()?;
-        Ok(r)
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        let r = self.0.is_low()?;
-        Ok(r)
-    }
 }

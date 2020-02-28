@@ -110,10 +110,45 @@ pub struct HalPins<OutputPin, InputPin> where
     OutputPin: digital::OutputPin,
     InputPin: digital::InputPin,
 {
-   cs: OutputPin,
-   reset: OutputPin,
-   busy: MaybeGpio<InputPin>,
-   ready: MaybeGpio<InputPin>, 
+   cs: HalPin<OutputPin>,
+   reset: HalPin<OutputPin>,
+   busy: MaybeGpio<HalPin<InputPin>>,
+   ready: MaybeGpio<HalPin<InputPin>>, 
+}
+
+
+/// HalPin object automatically wraps pin objects with errors that
+/// can be coerced to HalError
+pub struct HalPin<T> (T);
+
+impl <'a, T, E> digital::OutputPin for HalPin<T> where
+    T: digital::OutputPin<Error = E>,
+    E: Into<HalError>,
+{
+    type Error = HalError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.0.set_high().map_err(|e| e.into())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.0.set_low().map_err(|e| e.into())
+    }
+}
+
+impl <'a, T, E> digital::InputPin for HalPin<T> where
+    T: digital::InputPin<Error = E>,
+    E: Into<HalError>,
+{
+    type Error = HalError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        self.0.is_high().map_err(|e| e.into())
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        self.0.is_low().map_err(|e| e.into())
+    }
 }
 
 /// MaybeGpio wraps a GPIO option to allow for unconfigured pins
