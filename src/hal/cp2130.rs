@@ -3,13 +3,13 @@ use std::convert::{TryFrom, TryInto};
 
 use driver_cp2130::prelude::*;
 
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_hal::digital::v2::{InputPin as _, OutputPin as _};
+use embedded_hal::digital::v2::{self as digital};
 use embedded_hal::blocking::spi::{self};
 
 use crate::*;
-use super::{HalError, SpiConfig, PinConfig};
+use super::{HalPins, HalError, SpiConfig, PinConfig, MaybeGpio};
 
+/// Convert a generic SPI config object into a CP2130 object
 impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
     type Error = HalError;
 
@@ -23,20 +23,13 @@ impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
 
 /// CP2130 `Hal` implementation
 pub struct Cp2130Driver<'a> {
-    _cp2130: Cp2130<'a>,
-
+    cp2130: Cp2130<'a>,
     pub spi: Spi<'a>,
-
-    pub chip_select: Option<OutputPin<'a>>,
-    pub reset: Option<OutputPin<'a>>,
-    pub busy: Option<InputPin<'a>>,
-    pub ready: Option<InputPin<'a>>,
 }
-
 
 impl <'a>Cp2130Driver<'a> {
     /// Load base CP2130 instance
-    pub fn new(index: usize, spi: &SpiConfig, pins: &PinConfig) -> Result<Self, HalError> {
+    pub fn new(index: usize, spi: &SpiConfig) -> Result<Self, HalError> {
         // Fetch the matching device and descriptor
         let (device, descriptor) = Manager::device(Filter::default(), index)?;
 
@@ -47,121 +40,41 @@ impl <'a>Cp2130Driver<'a> {
         let spi_config = spi.clone().try_into()?;
         let spi = cp2130.spi(0, spi_config)?;
 
+        // Return object
+        Ok(Self{
+            cp2130,
+            spi,
+        })
+    }
+
+    /// Fetch pin objects from the driver
+    pub fn load_pins(&mut self, pins: &PinConfig) -> Result<HalPins<Cp2130OutputPin<'a>, Cp2130InputPin<'a>>, HalError> {
         // Connect pins
 
-        let chip_select = cp2130.gpio_out(pins.chip_select as u8, GpioMode::PushPull, GpioLevel::High)?;
+        let chip_select = self.cp2130.gpio_out(pins.chip_select as u8, GpioMode::PushPull, GpioLevel::High)?;
 
-        let reset = cp2130.gpio_out(pins.reset as u8, GpioMode::PushPull, GpioLevel::High)?;
+        let reset = self.cp2130.gpio_out(pins.reset as u8, GpioMode::PushPull, GpioLevel::High)?;
 
         let busy = match pins.busy {
-            Some(p) => Some(cp2130.gpio_in(p as u8)?),
+            Some(p) => Some(self.cp2130.gpio_in(p as u8)?),
             None => None,
         };
 
         let ready = match pins.ready {
-            Some(p) => Some(cp2130.gpio_in(p as u8)?),
+            Some(p) => Some(self.cp2130.gpio_in(p as u8)?),
             None => None,
         };
 
-        // Return object
-        Ok(Self{
-            _cp2130: cp2130,
-            spi,
-            chip_select: Some(chip_select),
-            reset: Some(reset),
-            busy,
-            ready,
-        })
-    }
-}
-
-impl <'a> ChipSelect for Cp2130Driver<'a> {
-    type Error = HalError;
-
-    /// Set the cs pin state
-    fn set_cs(&mut self, state: PinState) -> Result<(), Self::Error> {
-        let p = match self.chip_select.as_mut() {
-            Some(v) => v,
-            None => return Err(HalError::NoCsPin),
-        };
-
-        match state {
-            PinState::High => p.set_high()?,
-            PinState::Low => p.set_low()?,
-        };
-
-        Ok(())
-    }
-}
-
-impl <'a> Reset for Cp2130Driver<'a> {
-    type Error = HalError;
-
-    /// Set the reset pin state
-    fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
-        let p = match self.reset.as_mut() {
-            Some(v) => v,
-            None => return Err(HalError::NoResetPin),
-        };
-
-        match state {
-            PinState::High => p.set_high()?,
-            PinState::Low => p.set_low()?,
-        };
-
-        Ok(())
-    }
-}
-
-impl <'a> Busy for Cp2130Driver<'a> {
-    type Error = HalError;
-
-    /// Fetch the busy pin state
-    fn get_busy(&mut self) -> Result<PinState, Self::Error> {
-        let p = match self.busy.as_ref() {
-            Some(v) => v,
-            None => return Err(HalError::NoBusyPin),
+        let pins = HalPins{
+            cs: Cp2130OutputPin(chip_select),
+            reset: Cp2130OutputPin(reset),
+            busy: MaybeGpio( busy.map(|p| Cp2130InputPin(p)) ),
+            ready: MaybeGpio( ready.map(|p| Cp2130InputPin(p)) ),
         };
         
-        let v = p.is_high()?;
-        match v {
-            true => Ok(PinState::High),
-            false => Ok(PinState::Low),
-        }
+        Ok(pins)
     }
 }
-
-impl <'a> Ready for Cp2130Driver<'a> {
-    type Error = HalError;
-
-    /// Fetch the ready pin state
-    fn get_ready(&mut self) -> Result<PinState, Self::Error> {
-        let p = match self.ready.as_ref() {
-            Some(v) => v,
-            None => return Err(HalError::NoReadyPin),
-        };
-
-        let v = p.is_high()?;
-        match v {
-            true => Ok(PinState::High),
-            false => Ok(PinState::Low),
-        }
-    }
-}
-
-impl <'a> DelayMs<u32> for Cp2130Driver<'a> {
-    fn delay_ms(&mut self, _ms: u32) {
-        unimplemented!();
-    }
-}
-
-
-impl <'a> DelayUs<u32> for Cp2130Driver<'a> {
-    fn delay_us(&mut self, _us: u32) {
-        unimplemented!();
-    }
-}
-
 
 impl <'a> spi::Transfer<u8> for Cp2130Driver<'a>
 {
@@ -192,4 +105,40 @@ impl <'a> spi::Transactional<u8> for Cp2130Driver<'a> {
     {
         crate::wrapper::spi_exec(self, operations)
     }   
+}
+
+
+pub struct Cp2130OutputPin<'a> (OutputPin<'a>);
+
+impl <'a> digital::OutputPin for Cp2130OutputPin<'a> 
+{
+    type Error = HalError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.0.set_high()?;
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.0.set_low()?;
+        Ok(())
+    }
+}
+
+
+pub struct Cp2130InputPin<'a> (InputPin<'a>);
+
+impl <'a> digital::InputPin for Cp2130InputPin<'a> 
+{
+    type Error = HalError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        let r = self.0.is_high()?;
+        Ok(r)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        let r = self.0.is_low()?;
+        Ok(r)
+    }
 }

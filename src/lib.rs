@@ -61,7 +61,7 @@ pub trait Hal<E>:
     PrefixWrite<Error=E> +
     PrefixRead<Error=E> +
 
-    spi::Write<u8, Error=E> + 
+    spi::Write<u8, Error=E> +
     spi::Transfer<u8, Error=E> + 
     
     Busy<Error=E> + 
@@ -76,7 +76,7 @@ impl <T, E> Hal<E> for T where T:
     PrefixWrite<Error=E> +
     PrefixRead<Error=E> +
 
-    spi::Write<u8, Error=E> + 
+    spi::Write<u8, Error=E> +
     spi::Transfer<u8, Error=E> + 
     
     Busy<Error=E> + 

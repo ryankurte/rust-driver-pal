@@ -3,11 +3,8 @@
 #[derive(Debug)]
 pub enum HalError  {
     InvalidConfig,
-    NoCsPin,
-    NoResetPin,
-    NoBusyPin,
-    NoReadyPin,
-
+    NoPin,
+    
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::Error),
 

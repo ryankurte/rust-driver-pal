@@ -5,6 +5,8 @@ use std::boxed::Box;
 use serde::{Deserialize};
 use structopt::StructOpt;
 
+use embedded_hal::digital::v2::{self as digital, InputPin, OutputPin};
+
 pub mod error;
 pub use error::HalError;
 
@@ -73,21 +75,27 @@ pub struct PinConfig {
     ready: Option<u64>,
 }
 
-/// Load a hal instance from the provided configuration
-pub fn load_hal(config: &DeviceConfig) -> Result<Box<dyn Hal<HalError>>, HalError> {
+pub type HalInst = Box<dyn Hal<Error<HalError, HalError>>>;
+//pub type HalInst = Box<dyn Hal<HalError>>;
 
+
+/// Load a hal instance from the provided configuration
+pub fn load_hal(config: &DeviceConfig) -> Result<HalInst, HalError> {
+
+    // Process HAL configuration options
     match (&config.spi_dev, &config.cp2130_dev) {
         (Some(_), Some(_)) => {
             error!("Only one of spi_dev and cp2130_dev may be specified");
             return Err(HalError::InvalidConfig)
         },
-        (Some(s), None) => {
+        (Some(_s), None) => {
             unimplemented!()
         },
         (None, Some(i)) => {
-            let mut d = cp2130::Cp2130Driver::new(*i, &config.spi, &config.pins)?;
-            let cs = d.chip_select.take().unwrap();
-            let w = Wrapper::new(d, cs);
+            let mut spi = cp2130::Cp2130Driver::new(*i, &config.spi)?;
+            let HalPins{cs, reset, busy, ready} = spi.load_pins(&config.pins)?;
+
+            let w = Wrapper::new(spi, cs, reset, busy, ready, HalDelay);
             return Ok(Box::new(w))
         },
         _ => {
@@ -95,6 +103,89 @@ pub fn load_hal(config: &DeviceConfig) -> Result<Box<dyn Hal<HalError>>, HalErro
             return Err(HalError::InvalidConfig)
         }
     }
+}
 
-    unimplemented!()
+/// HalPins object for conveniently returning bound pins
+pub struct HalPins<OutputPin, InputPin> where
+    OutputPin: digital::OutputPin,
+    InputPin: digital::InputPin,
+{
+   cs: OutputPin,
+   reset: OutputPin,
+   busy: MaybeGpio<InputPin>,
+   ready: MaybeGpio<InputPin>, 
+}
+
+/// MaybeGpio wraps a GPIO option to allow for unconfigured pins
+pub struct MaybeGpio<T>(Option<T>);
+
+impl <T> From<Option<T>> for MaybeGpio<T> {
+    fn from(v: Option<T>) -> Self {
+        Self(v)
+    }
+}
+
+impl <T> OutputPin for MaybeGpio<T> 
+where 
+    T: OutputPin<Error=HalError>,
+{
+    type Error = HalError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        let p = match self.0.as_mut() {
+            Some(v) => v,
+            None => return Err(HalError::NoPin),
+        };
+
+        p.set_high()
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        let p = match self.0.as_mut() {
+            Some(v) => v,
+            None => return Err(HalError::NoPin),
+        };
+
+        p.set_low()
+    }
+}
+
+impl <T> InputPin for MaybeGpio<T> 
+where 
+    T: InputPin<Error=HalError>,
+{
+    type Error = HalError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        let p = match self.0.as_ref() {
+            Some(v) => v,
+            None => return Err(HalError::NoPin),
+        };
+
+        p.is_high()
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.is_high()?)
+    }
+}
+
+/// HalDelay object based on blocking SystemTime::elapsed calls
+pub struct HalDelay;
+
+use std::time::{SystemTime, Duration};
+
+impl DelayMs<u32> for HalDelay {
+    fn delay_ms(&mut self, ms: u32) {
+        let n = SystemTime::now();
+        let d = Duration::from_millis(ms as u64);
+        while n.elapsed().unwrap() < d {}
+    }
+}
+impl DelayUs<u32> for HalDelay {
+    fn delay_us(&mut self, us: u32) {
+        let n = SystemTime::now();
+        let d = Duration::from_micros(us as u64);
+        while n.elapsed().unwrap() < d {}
+    }
 }
