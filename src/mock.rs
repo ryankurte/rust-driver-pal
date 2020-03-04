@@ -344,10 +344,7 @@ impl spi::Write<u8> for Spi {
 impl spi::Transactional<u8> for Spi {
     type Error = Error<(), ()>;
 
-    fn exec<'a, O>(&mut self, mut operations: O) -> Result<(), Self::Error>
-    where
-        O: AsMut<[spi::Operation<'a, u8>]> 
-    {
+    fn exec<'a>(&mut self, operations: &mut [spi::Operation<'a, u8>]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -473,6 +470,7 @@ mod test {
     use std::*;
     use std::{panic, vec};
 
+    use crate::{PrefixRead, PrefixWrite};
     use super::*;
 
     #[test]

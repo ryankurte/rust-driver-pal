@@ -1,11 +1,11 @@
 
 use std::string::{String, ToString};
-use std::boxed::Box;
+use std::time::{SystemTime, Duration};
 
 use serde::{Deserialize};
 use structopt::StructOpt;
 
-use embedded_hal::digital::v2::{self as digital, InputPin, OutputPin};
+use embedded_hal::digital::v2::{self as digital};
 
 pub use simplelog::{LevelFilter, TermLogger};
 
@@ -19,8 +19,6 @@ pub mod linux;
 pub mod cp2130;
 
 use crate::*;
-use crate::wrapper::Wrapper;
-
 
 /// Generic device configuration structure for SPI drivers
 #[derive(Debug, StructOpt, Deserialize)]
@@ -85,45 +83,154 @@ pub struct LogConfig {
     level: LevelFilter,
 }
 
-/// Dynamic hal instance type
-pub type HalInst = Box<dyn Hal<Error<HalError, HalError>>>;
-
-/// Load a hal instance from the provided configuration
-pub fn load_hal(config: &DeviceConfig) -> Result<HalInst, HalError> {
-
-    // Process HAL configuration options
-    match (&config.spi_dev, &config.cp2130_dev) {
-        (Some(_), Some(_)) => {
-            error!("Only one of spi_dev and cp2130_dev may be specified");
-            return Err(HalError::InvalidConfig)
-        },
-        #[cfg(feature = "hal-linux")]
-        (Some(s), None) => {
-            let mut spi = linux::LinuxDriver::new(s, &config.spi)?;
-            let HalPins{cs, reset, busy, ready} = spi.load_pins(&config.pins)?;
-
-            let w = Wrapper::new(spi, cs, reset, busy, ready, HalDelay);
-            return Ok(Box::new(w))
-        },
-        #[cfg(feature = "hal-cp2130")]
-        (None, Some(i)) => {
-            let mut spi = cp2130::Cp2130Driver::new(*i, &config.spi)?;
-            let HalPins{cs, reset, busy, ready} = spi.load_pins(&config.pins)?;
-
-            let w = Wrapper::new(spi, cs, reset, busy, ready, HalDelay);
-            return Ok(Box::new(w))
-        },
-        _ => {
-            error!("No SPI configuration provided or no matching implementation found");
-            return Err(HalError::InvalidConfig)
-        }
+impl LogConfig {
+    /// Initialise logging with the provided level
+    pub fn init(&self) {
+        TermLogger::init(self.level, simplelog::Config::default()).unwrap();
     }
 }
 
-/// Initialise logging
-pub fn init_logging(level: LevelFilter) {
-    TermLogger::init(level, simplelog::Config::default()).unwrap();
+/// HAL instance
+pub struct HalInst<'a> {
+    pub base: HalBase<'a>,
+    pub spi: HalSpi<'a>,
+    pub pins: HalPins<'a>,
 }
+
+/// Base storage for Hal instances
+pub enum HalBase<'a> {
+    Cp2130(driver_cp2130::Cp2130<'a>),
+    None,
+}
+
+impl DeviceConfig {
+
+    /// Load a hal instance from the provided configuration
+    pub fn load<'a>(&self) -> Result<HalInst<'a>, HalError> {
+
+        // Process HAL configuration options
+        let hal = match (&self.spi_dev, &self.cp2130_dev) {
+            (Some(_), Some(_)) => {
+                error!("Only one of spi_dev and cp2130_dev may be specified");
+                return Err(HalError::InvalidConfig)
+            },
+            #[cfg(feature = "hal-linux")]
+            (Some(s), None) => {
+                linux::LinuxDriver::new(s, &self.spi, &self.pins)?
+            },
+            #[cfg(feature = "hal-cp2130")]
+            (None, Some(i)) => {
+                cp2130::Cp2130Driver::new(*i, &self.spi, &self.pins)?
+            },
+            _ => {
+                error!("No SPI configuration provided or no matching implementation found");
+                return Err(HalError::InvalidConfig)
+            }
+        };
+
+        Ok(hal)
+    }
+}
+
+/// SPI hal wrapper
+pub enum HalSpi<'a> {
+    Linux(linux_embedded_hal::Spidev),
+    Cp2130(driver_cp2130::Spi<'a>)
+}
+
+impl <'a> spi::Transfer<u8> for HalSpi<'a>
+{
+    type Error = HalError;
+
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+        let r = match self {
+            HalSpi::Linux(i) => i.transfer(data)?,
+            HalSpi::Cp2130(i) => i.transfer(data)?,
+        };
+        Ok(r)
+    }
+}
+
+impl <'a> spi::Write<u8> for HalSpi<'a>
+{
+    type Error = HalError;
+
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        match self {
+            HalSpi::Linux(i) => i.write(data)?,
+            HalSpi::Cp2130(i) => i.write(data)?,
+        };
+        Ok(())
+    }
+}
+
+impl <'a> spi::Transactional<u8> for HalSpi<'a> {
+    type Error = HalError;
+
+    fn exec<'b>(&mut self, operations: &mut [spi::Operation<'b, u8>]) -> Result<(), Self::Error> {
+        match self {
+            HalSpi::Linux(i) =>  i.exec(operations)?,
+            HalSpi::Cp2130(i) =>  i.exec(operations)?,
+        };
+        Ok(())
+    }   
+}
+
+/// Input pin hal wrapper
+pub enum HalInputPin<'a> {
+    Linux(linux_embedded_hal::Pin),
+    Cp2130(driver_cp2130::InputPin<'a>),
+    None,
+}
+
+
+impl <'a> digital::InputPin for HalInputPin<'a> {
+    type Error = HalError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        let r = match self {
+            HalInputPin::Linux(i) => i.is_high()?,
+            HalInputPin::Cp2130(i) => i.is_high()?,
+            HalInputPin::None => return Err(HalError::NoPin),
+        };
+
+        Ok(r)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.is_high()?)
+    }
+}
+
+/// Output pin hal wrapper
+pub enum HalOutputPin<'a> {
+    Linux(linux_embedded_hal::Pin),
+    Cp2130(driver_cp2130::OutputPin<'a>),
+    None,
+}
+
+impl <'a> digital::OutputPin for HalOutputPin<'a> {
+    type Error = HalError;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        match self {
+            HalOutputPin::Linux(i) => i.set_high()?,
+            HalOutputPin::Cp2130(i) => i.set_high()?,
+            HalOutputPin::None => return Err(HalError::NoPin),
+        }
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        match self {
+            HalOutputPin::Linux(i) => i.set_low()?,
+            HalOutputPin::Cp2130(i) => i.set_low()?,
+            HalOutputPin::None => return Err(HalError::NoPin),
+        }
+        Ok(())
+    }
+}
+
 
 /// Load a configuration file
 pub fn load_config<T>(file: &str) -> T
@@ -136,109 +243,16 @@ where
 
 
 /// HalPins object for conveniently returning bound pins
-pub struct HalPins<OutputPin, InputPin> where
-    OutputPin: digital::OutputPin,
-    InputPin: digital::InputPin,
-{
-   cs: HalPin<OutputPin>,
-   reset: HalPin<OutputPin>,
-   busy: MaybeGpio<HalPin<InputPin>>,
-   ready: MaybeGpio<HalPin<InputPin>>, 
+pub struct HalPins<'a> {
+   pub cs: HalOutputPin<'a>,
+   pub reset: HalOutputPin<'a>,
+   pub busy: HalInputPin<'a>,
+   pub ready: HalInputPin<'a>, 
 }
 
-
-/// HalPin object automatically wraps pin objects with errors that
-/// can be coerced to HalError
-pub struct HalPin<T> (T);
-
-impl <'a, T, E> digital::OutputPin for HalPin<T> where
-    T: digital::OutputPin<Error = E>,
-    E: Into<HalError>,
-{
-    type Error = HalError;
-
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        self.0.set_high().map_err(|e| e.into())
-    }
-
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        self.0.set_low().map_err(|e| e.into())
-    }
-}
-
-impl <'a, T, E> digital::InputPin for HalPin<T> where
-    T: digital::InputPin<Error = E>,
-    E: Into<HalError>,
-{
-    type Error = HalError;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        self.0.is_high().map_err(|e| e.into())
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        self.0.is_low().map_err(|e| e.into())
-    }
-}
-
-/// MaybeGpio wraps a GPIO option to allow for unconfigured pins
-pub struct MaybeGpio<T>(Option<T>);
-
-impl <T> From<Option<T>> for MaybeGpio<T> {
-    fn from(v: Option<T>) -> Self {
-        Self(v)
-    }
-}
-
-impl <T> OutputPin for MaybeGpio<T> 
-where 
-    T: OutputPin<Error=HalError>,
-{
-    type Error = HalError;
-
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        let p = match self.0.as_mut() {
-            Some(v) => v,
-            None => return Err(HalError::NoPin),
-        };
-
-        p.set_high()
-    }
-
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        let p = match self.0.as_mut() {
-            Some(v) => v,
-            None => return Err(HalError::NoPin),
-        };
-
-        p.set_low()
-    }
-}
-
-impl <T> InputPin for MaybeGpio<T> 
-where 
-    T: InputPin<Error=HalError>,
-{
-    type Error = HalError;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        let p = match self.0.as_ref() {
-            Some(v) => v,
-            None => return Err(HalError::NoPin),
-        };
-
-        p.is_high()
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.is_high()?)
-    }
-}
 
 /// HalDelay object based on blocking SystemTime::elapsed calls
 pub struct HalDelay;
-
-use std::time::{SystemTime, Duration};
 
 impl DelayMs<u32> for HalDelay {
     fn delay_ms(&mut self, ms: u32) {

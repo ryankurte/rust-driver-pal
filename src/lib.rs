@@ -26,13 +26,13 @@ extern crate libc;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 
-#[cfg(feature = "utils")]
+#[cfg(feature = "serde")]
 extern crate serde;
 
-#[cfg(feature = "utils")]
+#[cfg(feature = "toml")]
 extern crate toml;
 
-#[cfg(feature = "utils")]
+#[cfg(feature = "simplelog")]
 extern crate simplelog;
 
 #[cfg(feature = "hal-linux")]
@@ -41,11 +41,9 @@ extern crate linux_embedded_hal;
 #[cfg(feature = "hal-cp2130")]
 extern crate driver_cp2130;
 
-
-#[cfg(feature = "utils")]
-pub mod utils;
-
+#[cfg(feature = "hal")]
 pub mod hal;
+
 
 pub mod wrapper;
 
@@ -62,7 +60,7 @@ pub trait Hal<E>:
     PrefixRead<Error=E> +
 
     spi::Write<u8, Error=E> +
-    spi::Transfer<u8, Error=E> + 
+    spi::Transfer<u8, Error=E> +
     
     Busy<Error=E> + 
     Ready<Error=E> + 
@@ -85,7 +83,6 @@ impl <T, E> Hal<E> for T where T:
     
     DelayMs<u32> + 
     DelayUs<u32> {}
-
 
 /// PrefixRead trait provides a higher level, write then read function
 pub trait PrefixRead {

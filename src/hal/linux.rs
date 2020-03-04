@@ -1,19 +1,15 @@
 
-use embedded_hal::blocking::spi;
-
-use super::{HalError, HalPin, HalPins, MaybeGpio, SpiConfig, PinConfig};
-
 extern crate linux_embedded_hal;
 pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
 pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiModeFlags};
 
-pub struct LinuxDriver {
-    spi: Spidev,
-}
+use super::*;
+
+pub struct LinuxDriver;
 
 impl LinuxDriver {
     /// Load an SPI device using the provided configuration
-    pub fn new(path: &str, spi: &SpiConfig) -> Result<Self, HalError> {
+    pub fn new<'a>(path: &str, spi: &SpiConfig, pins: &PinConfig) -> Result<HalInst<'a>, HalError> {
         let mut flags = match spi.mode {
             0 => SpiModeFlags::SPI_MODE_0,
             1 => SpiModeFlags::SPI_MODE_1,
@@ -31,68 +27,42 @@ impl LinuxDriver {
 
         let spi = load_spi(path, spi.baud, flags)?;
 
-        Ok(Self{ spi })
+        let pins = Self::load_pins(pins)?;
+
+        Ok(HalInst{ 
+            base: HalBase::None,
+            spi: HalSpi::Linux(spi),
+            pins,
+        })
     }
 
     /// Load pins using the provided config
-    pub fn load_pins(&mut self, pins: &PinConfig) -> Result<HalPins<Pindev, Pindev>, HalError> {
+    fn load_pins<'a>(pins: &PinConfig) -> Result<HalPins<'a>, HalError> {
 
         let chip_select = load_pin(pins.chip_select, Direction::Out)?;
 
         let reset = load_pin(pins.reset, Direction::Out)?;
 
         let busy = match pins.busy {
-            Some(p) => Some(load_pin(p, Direction::In)?),
-            None => None,
+            Some(p) => HalInputPin::Linux(load_pin(p, Direction::In)?),
+            None => HalInputPin::None,
         };
 
         let ready = match pins.ready {
-            Some(p) => Some(load_pin(p, Direction::In)?),
-            None => None,
+            Some(p) => HalInputPin::Linux(load_pin(p, Direction::In)?),
+            None => HalInputPin::None,
         };
 
         let pins = HalPins{
-            cs: HalPin(chip_select),
-            reset: HalPin(reset),
-            busy: MaybeGpio( busy.map(|p| HalPin(p)) ),
-            ready: MaybeGpio( ready.map(|p| HalPin(p)) ),
+            cs: HalOutputPin::Linux(chip_select),
+            reset: HalOutputPin::Linux(reset),
+            busy,
+            ready,
         };
         
         Ok(pins)
     }
 }
-
-impl spi::Transfer<u8> for LinuxDriver
-{
-    type Error = HalError;
-
-    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        let r = self.spi.transfer(data)?;
-        Ok(r)
-    }
-}
-
-impl spi::Write<u8> for LinuxDriver
-{
-    type Error = HalError;
-
-    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        self.spi.write(data)?;
-        Ok(())
-    }
-}
-
-impl spi::Transactional<u8> for LinuxDriver {
-    type Error = HalError;
-
-    fn exec<'b, O>(&mut self, operations: O) -> Result<(), Self::Error>
-    where
-        O: AsMut<[spi::Operation<'b, u8>]> 
-    {
-        crate::wrapper::spi_exec(self, operations)
-    }   
-}
-
 
 /// Load an SPI device using the provided configuration
 fn load_spi(path: &str, baud: u32, mode: spidev::SpiModeFlags) -> Result<Spidev, HalError> {

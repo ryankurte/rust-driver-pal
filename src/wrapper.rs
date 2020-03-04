@@ -91,10 +91,7 @@ where
 {
     type Error = Error<SpiError, PinError>;
 
-    fn exec<'a, O>(&mut self, operations: O) -> Result<(), Self::Error>
-    where
-        O: AsMut<[Operation<'a, u8>]> 
-    {
+    fn exec<'a>(&mut self, operations: &mut [spi::Operation<'a, u8>]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
 
         let r = spi::Transactional::exec(&mut self.spi, operations).map_err(Error::Spi);

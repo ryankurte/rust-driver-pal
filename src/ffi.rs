@@ -3,11 +3,12 @@
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
 use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::{Transfer, Write};
+use embedded_hal::blocking::spi::{Transactional};
 use embedded_hal::digital::v2::OutputPin;
 
+use crate::{PrefixWrite, PrefixRead};
 use crate::wrapper::Wrapper;
-use crate::Transactional;
+
 
 /// Mark traits as cursed to provide a `Conv` implementation for FFI use
 pub trait Cursed {}
@@ -48,7 +49,7 @@ impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Cursed
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
     Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
 where
-    Spi: Transfer<u8, Error = SpiError> + Write<u8, Error = SpiError>,
+    Spi: Transactional<u8, Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
     Delay: DelayMs<u32>,
 {
@@ -70,8 +71,9 @@ where
         // Execute command and handle errors
         match s.spi_write(&prefix, &data) {
             Ok(_) => 0,
-            Err(e) => {
-                s.err = Some(e);
+            Err(_e) => {
+                // TODO: removed this from wrapper
+                //s.err = Some(e);
                 -1
             }
         }
@@ -96,8 +98,9 @@ where
         // Execute command and handle errors
         match s.spi_read(&prefix, &mut data) {
             Ok(_) => 0,
-            Err(e) => {
-                s.err = Some(e);
+            Err(_e) => {
+                // TODO: removed this from wrapper
+                //s.err = Some(e);
                 -1
             }
         }
