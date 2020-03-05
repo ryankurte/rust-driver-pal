@@ -1,6 +1,7 @@
 
 use std::string::{String, ToString};
 use std::time::{SystemTime, Duration};
+use std::marker::PhantomData;
 
 use serde::{Deserialize};
 use structopt::StructOpt;
@@ -99,8 +100,11 @@ pub struct HalInst<'a> {
 
 /// Base storage for Hal instances
 pub enum HalBase<'a> {
+    #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::Cp2130<'a>),
     None,
+
+    _Fake(PhantomData<&'a ()>),
 }
 
 impl DeviceConfig {
@@ -134,8 +138,12 @@ impl DeviceConfig {
 
 /// SPI hal wrapper
 pub enum HalSpi<'a> {
+    #[cfg(feature = "hal-linux")]
     Linux(linux_embedded_hal::Spidev),
-    Cp2130(driver_cp2130::Spi<'a>)
+    #[cfg(feature = "hal-cp2130")]
+    Cp2130(driver_cp2130::Spi<'a>),
+
+    _Fake(PhantomData<&'a ()>),
 }
 
 impl <'a> spi::Transfer<u8> for HalSpi<'a>
@@ -144,8 +152,11 @@ impl <'a> spi::Transfer<u8> for HalSpi<'a>
 
     fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let r = match self {
+            #[cfg(feature = "hal-linux")]
             HalSpi::Linux(i) => i.transfer(data)?,
+            #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.transfer(data)?,
+            _ => unreachable!(),
         };
         Ok(r)
     }
@@ -157,8 +168,11 @@ impl <'a> spi::Write<u8> for HalSpi<'a>
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         match self {
+            #[cfg(feature = "hal-linux")]
             HalSpi::Linux(i) => i.write(data)?,
+            #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.write(data)?,
+            _ => unreachable!(),
         };
         Ok(())
     }
@@ -169,8 +183,11 @@ impl <'a> spi::Transactional<u8> for HalSpi<'a> {
 
     fn exec<'b>(&mut self, operations: &mut [spi::Operation<'b, u8>]) -> Result<(), Self::Error> {
         match self {
+            #[cfg(feature = "hal-linux")]
             HalSpi::Linux(i) =>  i.exec(operations)?,
+            #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) =>  i.exec(operations)?,
+            _ => unreachable!(),
         };
         Ok(())
     }   
@@ -178,9 +195,13 @@ impl <'a> spi::Transactional<u8> for HalSpi<'a> {
 
 /// Input pin hal wrapper
 pub enum HalInputPin<'a> {
+    #[cfg(feature = "hal-linux")]
     Linux(linux_embedded_hal::Pin),
+    #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::InputPin<'a>),
     None,
+
+    _Fake(PhantomData<&'a ()>),
 }
 
 
@@ -189,9 +210,12 @@ impl <'a> digital::InputPin for HalInputPin<'a> {
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         let r = match self {
+            #[cfg(feature = "hal-linux")]
             HalInputPin::Linux(i) => i.is_high()?,
+            #[cfg(feature = "hal-cp2130")]
             HalInputPin::Cp2130(i) => i.is_high()?,
             HalInputPin::None => return Err(HalError::NoPin),
+            _ => unreachable!(),
         };
 
         Ok(r)
@@ -204,9 +228,13 @@ impl <'a> digital::InputPin for HalInputPin<'a> {
 
 /// Output pin hal wrapper
 pub enum HalOutputPin<'a> {
+    #[cfg(feature = "hal-linux")]
     Linux(linux_embedded_hal::Pin),
+    #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::OutputPin<'a>),
     None,
+
+    _Fake(PhantomData<&'a ()>),
 }
 
 impl <'a> digital::OutputPin for HalOutputPin<'a> {
@@ -214,18 +242,24 @@ impl <'a> digital::OutputPin for HalOutputPin<'a> {
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         match self {
+            #[cfg(feature = "hal-linux")]
             HalOutputPin::Linux(i) => i.set_high()?,
+            #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.set_high()?,
             HalOutputPin::None => return Err(HalError::NoPin),
+            _ => unreachable!(),
         }
         Ok(())
     }
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
         match self {
+            #[cfg(feature = "hal-linux")]
             HalOutputPin::Linux(i) => i.set_low()?,
+            #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.set_low()?,
             HalOutputPin::None => return Err(HalError::NoPin),
+            _ => unreachable!(),
         }
         Ok(())
     }
