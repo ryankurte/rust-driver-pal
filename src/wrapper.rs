@@ -21,7 +21,7 @@ pub struct Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
 
     delay: Delay,
 
-    _e: std::marker::PhantomData<Error<SpiError, PinError>>,
+    _e: core::marker::PhantomData<Error<SpiError, PinError>>,
 }
 
 /// ManagedChipSelect indicates wrapper controls CS line
@@ -35,7 +35,7 @@ where
 
     /// Create a new wrapper with the provided chip select pin
     pub fn new(spi: Spi, cs: CsPin, reset: ResetPin, busy: BusyPin, ready: ReadyPin, delay: Delay) -> Self {
-        Self{spi, cs, reset, busy, ready, delay, _e: std::marker::PhantomData}
+        Self{spi, cs, reset, busy, ready, delay, _e: core::marker::PhantomData}
     }
 
     /// Explicitly fetch the inner spi (non-CS controlling) object
