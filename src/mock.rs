@@ -143,7 +143,7 @@ impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
             spi::Operation::Write(ref d) => {
                 MockExec::SpiWrite(d.to_vec())
             }
-            spi::Operation::WriteRead(ref d) => {
+            spi::Operation::Transfer(ref d) => {
                 MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
             }
         }

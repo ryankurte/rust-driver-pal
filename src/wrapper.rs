@@ -183,7 +183,7 @@ pub fn spi_exec<'a, Spi, SpiError, Operations>(spi: &mut Spi, mut operations: Op
 
         match &mut t {
             Operation::Write(d) => spi.write(d)?,
-            Operation::WriteRead(d) => spi.transfer(d).map(|_| ())?,
+            Operation::Transfer(d) => spi.transfer(d).map(|_| ())?,
         }
     }
     Ok(())

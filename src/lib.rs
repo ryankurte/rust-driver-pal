@@ -183,7 +183,7 @@ where
     fn spi_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
         let mut ops = [
             spi::Operation::Write(prefix),
-            spi::Operation::WriteRead(data),
+            spi::Operation::Transfer(data),
         ];
 
         self.exec(&mut ops)?;
