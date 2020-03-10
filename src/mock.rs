@@ -365,7 +365,7 @@ impl spi::Transactional<u8> for Spi {
                 let x = e.get(i);
 
                 match (t, x) {
-                    (spi::Operation::WriteRead(ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
+                    (spi::Operation::Transfer(ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
                         t_in.copy_from_slice(&x_in)
                     },
                     (spi::Operation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
