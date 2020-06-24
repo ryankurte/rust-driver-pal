@@ -1,8 +1,8 @@
 [package]
 name = "embedded-spi"
-description = "Rust embedded driver helper package"
-repository = "https://github.com/ryankurte/rust-embedded-spi"
-version = "0.6.1"
+description = "Rust embedded driver helper package (new releases at spi-hal)"
+repository = "https://github.com/ryankurte/rust-spi-hal"
+version = "0.6.2"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,8 +10,11 @@ license = "MIT"
 [features]
 mock = []
 ffi = [ "libc" ]
-utils = [ "toml", "structopt", "serde", "simplelog", "linux-embedded-hal" ]
-default = [ "mock", "ffi", "utils" ]
+utils = [ "hal" ]
+hal = [ "toml", "structopt", "serde", "simplelog" ]
+hal-cp2130 = [ "driver-cp2130" ]
+hal-linux = [ "linux-embedded-hal" ]
+default = [ "mock", "hal", "hal-cp2130", "hal-linux" ]
 
 [dependencies]
 embedded-hal = { version = "0.2.3", features = ["unproven"] }
@@ -20,5 +23,17 @@ libc = { version = "0.2.54", optional = true }
 log = "0.4.6"
 serde = { version = "1.0.91", features = ["derive"], optional = true }
 toml = { version = "0.5.1", optional = true }
-structopt = { version = "0.2.15", optional = true }
+structopt = { version = "0.3.11", optional = true }
 simplelog = { version = "0.5.3", optional = true }
+driver-cp2130 = { version = "0.3.1", optional = true }
+
+
+[patch.crates-io]
+#embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-transactions" }
+#linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/spi-transactions" }
+#driver-cp2130 = { git = "https://github.com/ryankurte/rust-driver-cp2130", branch = "master" }
+
+
+#driver-cp2130 = { path = "../rust-driver-cp2130", optional=true }
+#embedded-hal = { path = "../embedded-hal" }
+#linux-embedded-hal = { path = "../linux-embedded-hal" }
