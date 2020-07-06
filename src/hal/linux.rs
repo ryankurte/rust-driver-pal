@@ -1,7 +1,7 @@
 
 extern crate linux_embedded_hal;
 pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
-pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiModeFlags};
+pub use linux_embedded_hal::{spidev, Delay, SysfsPin as Pindev, Spidev, spidev::SpiModeFlags};
 
 use super::*;
 

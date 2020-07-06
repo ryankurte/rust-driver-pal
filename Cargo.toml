@@ -31,3 +31,4 @@ driver-cp2130 = { version = "1.0.0-alpha.0", optional = true, features = ["trans
 [patch.crates-io]
 embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-transactions" }
 linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/spi-transactions" }
+

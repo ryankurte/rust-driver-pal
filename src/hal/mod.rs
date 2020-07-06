@@ -2,11 +2,12 @@
 use std::string::{String, ToString};
 use std::time::{SystemTime, Duration};
 use std::marker::PhantomData;
+use std::convert::Infallible;
 
 use serde::{Deserialize};
 use structopt::StructOpt;
 
-use embedded_hal::digital::v2::{self as digital};
+use embedded_hal::digital;
 
 pub use simplelog::{LevelFilter, TermLogger};
 
@@ -150,12 +151,12 @@ impl <'a> spi::Transfer<u8> for HalSpi<'a>
 {
     type Error = HalError;
 
-    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+    fn try_transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let r = match self {
             #[cfg(feature = "hal-linux")]
-            HalSpi::Linux(i) => i.transfer(data)?,
+            HalSpi::Linux(i) => i.try_transfer(data)?,
             #[cfg(feature = "hal-cp2130")]
-            HalSpi::Cp2130(i) => i.transfer(data)?,
+            HalSpi::Cp2130(i) => i.try_transfer(data)?,
             _ => unreachable!(),
         };
         Ok(r)
@@ -166,12 +167,12 @@ impl <'a> spi::Write<u8> for HalSpi<'a>
 {
     type Error = HalError;
 
-    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    fn try_write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "hal-linux")]
-            HalSpi::Linux(i) => i.write(data)?,
+            HalSpi::Linux(i) => i.try_write(data)?,
             #[cfg(feature = "hal-cp2130")]
-            HalSpi::Cp2130(i) => i.write(data)?,
+            HalSpi::Cp2130(i) => i.try_write(data)?,
             _ => unreachable!(),
         };
         Ok(())
@@ -181,12 +182,12 @@ impl <'a> spi::Write<u8> for HalSpi<'a>
 impl <'a> spi::Transactional<u8> for HalSpi<'a> {
     type Error = HalError;
 
-    fn exec<'b>(&mut self, operations: &mut [spi::Operation<'b, u8>]) -> Result<(), Self::Error> {
+    fn try_exec<'b>(&mut self, operations: &mut [spi::Operation<'b, u8>]) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "hal-linux")]
-            HalSpi::Linux(i) =>  i.exec(operations)?,
+            HalSpi::Linux(i) =>  i.try_exec(operations)?,
             #[cfg(feature = "hal-cp2130")]
-            HalSpi::Cp2130(i) =>  i.exec(operations)?,
+            HalSpi::Cp2130(i) =>  i.try_exec(operations)?,
             _ => unreachable!(),
         };
         Ok(())
@@ -196,7 +197,7 @@ impl <'a> spi::Transactional<u8> for HalSpi<'a> {
 /// Input pin hal wrapper
 pub enum HalInputPin<'a> {
     #[cfg(feature = "hal-linux")]
-    Linux(linux_embedded_hal::Pin),
+    Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::InputPin<'a>),
     None,
@@ -208,12 +209,12 @@ pub enum HalInputPin<'a> {
 impl <'a> digital::InputPin for HalInputPin<'a> {
     type Error = HalError;
 
-    fn is_high(&self) -> Result<bool, Self::Error> {
+    fn try_is_high(&self) -> Result<bool, Self::Error> {
         let r = match self {
             #[cfg(feature = "hal-linux")]
-            HalInputPin::Linux(i) => i.is_high()?,
+            HalInputPin::Linux(i) => i.try_is_high()?,
             #[cfg(feature = "hal-cp2130")]
-            HalInputPin::Cp2130(i) => i.is_high()?,
+            HalInputPin::Cp2130(i) => i.try_is_high()?,
             HalInputPin::None => return Err(HalError::NoPin),
             _ => unreachable!(),
         };
@@ -221,15 +222,15 @@ impl <'a> digital::InputPin for HalInputPin<'a> {
         Ok(r)
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.is_high()?)
+    fn try_is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!self.try_is_high()?)
     }
 }
 
 /// Output pin hal wrapper
 pub enum HalOutputPin<'a> {
     #[cfg(feature = "hal-linux")]
-    Linux(linux_embedded_hal::Pin),
+    Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::OutputPin<'a>),
     None,
@@ -240,24 +241,24 @@ pub enum HalOutputPin<'a> {
 impl <'a> digital::OutputPin for HalOutputPin<'a> {
     type Error = HalError;
 
-    fn set_high(&mut self) -> Result<(), Self::Error> {
+    fn try_set_high(&mut self) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "hal-linux")]
-            HalOutputPin::Linux(i) => i.set_high()?,
+            HalOutputPin::Linux(i) => i.try_set_high()?,
             #[cfg(feature = "hal-cp2130")]
-            HalOutputPin::Cp2130(i) => i.set_high()?,
+            HalOutputPin::Cp2130(i) => i.try_set_high()?,
             HalOutputPin::None => return Err(HalError::NoPin),
             _ => unreachable!(),
         }
         Ok(())
     }
 
-    fn set_low(&mut self) -> Result<(), Self::Error> {
+    fn try_set_low(&mut self) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "hal-linux")]
-            HalOutputPin::Linux(i) => i.set_low()?,
+            HalOutputPin::Linux(i) => i.try_set_low()?,
             #[cfg(feature = "hal-cp2130")]
-            HalOutputPin::Cp2130(i) => i.set_low()?,
+            HalOutputPin::Cp2130(i) => i.try_set_low()?,
             HalOutputPin::None => return Err(HalError::NoPin),
             _ => unreachable!(),
         }
@@ -289,16 +290,22 @@ pub struct HalPins<'a> {
 pub struct HalDelay;
 
 impl DelayMs<u32> for HalDelay {
-    fn delay_ms(&mut self, ms: u32) {
+    type Error = Infallible;
+    
+    fn try_delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         let n = SystemTime::now();
         let d = Duration::from_millis(ms as u64);
-        while n.elapsed().unwrap() < d {}
+        while n.elapsed().unwrap() < d {};
+        Ok(())
     }
 }
 impl DelayUs<u32> for HalDelay {
-    fn delay_us(&mut self, us: u32) {
+    type Error = Infallible;
+    
+    fn try_delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         let n = SystemTime::now();
         let d = Duration::from_micros(us as u64);
-        while n.elapsed().unwrap() < d {}
+        while n.elapsed().unwrap() < d {};
+        Ok(())
     }
 }

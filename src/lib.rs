@@ -139,9 +139,10 @@ pub trait Ready {
 
 /// Error type combining SPI and Pin errors for utility
 #[derive(Debug, Clone, PartialEq)]
-pub enum Error<SpiError, PinError> {
+pub enum Error<SpiError, PinError, DelayError> {
     Spi(SpiError),
     Pin(PinError),
+    Delay(DelayError),
     Aborted,
 }
 
@@ -166,7 +167,7 @@ where
             spi::Operation::Write(data),
         ];
 
-        self.exec(&mut ops)?;
+        self.try_exec(&mut ops)?;
         
         Ok(())
     }
@@ -186,7 +187,7 @@ where
             spi::Operation::Transfer(data),
         ];
 
-        self.exec(&mut ops)?;
+        self.try_exec(&mut ops)?;
         
         Ok(())
     }
