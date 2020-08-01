@@ -2,11 +2,11 @@ use std::sync::{Arc, Mutex};
 use std::vec::Vec;
 use std::{panic, vec};
 
-use crate::{Busy, Error, PinState, Ready, Reset, Transaction, Transactional};
+use crate::{Busy, Error, PinState, Ready, Reset};
 
-use embedded_hal::blocking::delay::DelayMs;
+use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use embedded_hal::blocking::spi;
-use embedded_hal::digital::v2;
+use embedded_hal::digital::{InputPin, OutputPin};
 
 /// Base mock type
 pub struct Mock {
@@ -41,8 +41,10 @@ pub struct Delay {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockTransaction {
     None,
+
     SpiWrite(Id, Vec<u8>, Vec<u8>),
     SpiRead(Id, Vec<u8>, Vec<u8>),
+
     SpiExec(Id, Vec<MockExec>),
 
     Busy(Id, PinState),
@@ -58,6 +60,7 @@ pub enum MockTransaction {
     SetLow(Id),
 
     DelayMs(u32),
+    DelayUs(u32),
 }
 
 impl MockTransaction {
@@ -132,21 +135,17 @@ impl MockTransaction {
 #[derive(Clone, Debug, PartialEq)]
 pub enum MockExec {
     SpiWrite(Vec<u8>),
-    SpiRead(Vec<u8>),
+    SpiTransfer(Vec<u8>, Vec<u8>),
 }
 
-impl<'a> From<&Transaction<'a>> for MockExec {
-    fn from(t: &Transaction<'a>) -> Self {
+impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
+    fn from(t: &spi::Operation<'a, u8>) -> Self {
         match t {
-            Transaction::Read(ref d) => {
-                let mut v = Vec::with_capacity(d.len());
-                v.copy_from_slice(d);
-                MockExec::SpiRead(v)
+            spi::Operation::Write(ref d) => {
+                MockExec::SpiWrite(d.to_vec())
             }
-            Transaction::Write(ref d) => {
-                let mut v = Vec::with_capacity(d.len());
-                v.copy_from_slice(d);
-                MockExec::SpiWrite(v)
+            spi::Operation::Transfer(ref d) => {
+                MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
             }
         }
     }
@@ -230,89 +229,9 @@ impl Mock {
     }
 }
 
-impl Transactional for Spi {
-    type Error = Error<(), ()>;
-
-    /// Read data from a specified address
-    /// This consumes the provided input data array and returns a reference to this on success
-    fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-        let index = i.index;
-
-        // Copy read data from expectation
-        match &i.expected.get(index) {
-            Some(MockTransaction::SpiRead(_id, _outgoing, incoming)) => {
-                data.copy_from_slice(&incoming);
-            }
-            _ => (),
-        };
-
-        // Save actual call
-        i.actual.push(MockTransaction::SpiRead(
-            self.id,
-            prefix.into(),
-            data.into(),
-        ));
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
-    }
-
-    /// Write data to a specified register address
-    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-
-        // Save actual call
-        i.actual.push(MockTransaction::SpiWrite(
-            self.id,
-            prefix.into(),
-            data.into(),
-        ));
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
-    }
-
-    /// Execute the provided transactions
-    fn spi_exec(&mut self, transactions: &mut [Transaction]) -> Result<(), Self::Error> {
-        let mut i = self.inner.lock().unwrap();
-        let index = i.index;
-
-        // Save actual calls
-        let t: Vec<MockExec> = transactions
-            .iter()
-            .map(|ref v| MockExec::from(*v))
-            .collect();
-        i.actual.push(MockTransaction::SpiExec(self.id, t));
-
-        // Load expected reads
-        if let MockTransaction::SpiExec(_id, e) = &i.expected[index] {
-            for i in 0..transactions.len() {
-                let t = &mut transactions[i];
-                let x = e.get(i);
-
-                match (t, x) {
-                    (Transaction::Read(ref mut v), Some(MockExec::SpiRead(d))) => {
-                        v.copy_from_slice(&d)
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        // Update expectation index
-        i.index += 1;
-
-        Ok(())
-    }
-}
-
 impl Busy for Spi {
-    type Error = Error<(), ()>;
+    type Error = Error<(), (), ()>;
+
     /// Check peripheral busy status
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -332,7 +251,8 @@ impl Busy for Spi {
 }
 
 impl Ready for Spi {
-    type Error = Error<(), ()>;
+    type Error = Error<(), (), ()>;
+
     /// Check peripheral ready status
     fn get_ready(&mut self) -> Result<PinState, Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -353,7 +273,8 @@ impl Ready for Spi {
 }
 
 impl Reset for Spi {
-    type Error = Error<(), ()>;
+    type Error = Error<(), (), ()>;
+
     /// Check peripheral ready status
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -367,7 +288,9 @@ impl Reset for Spi {
 }
 
 impl DelayMs<u32> for Spi {
-    fn delay_ms(&mut self, t: u32) {
+    type Error = ();
+
+    fn try_delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -375,13 +298,32 @@ impl DelayMs<u32> for Spi {
 
         // Update expectation index
         i.index += 1;
+
+        Ok(())
+    }
+}
+
+
+impl DelayUs<u32> for Spi {
+    type Error = ();
+
+    fn try_delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+
+        // Save actual call
+        i.actual.push(MockTransaction::DelayUs(t));
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
     }
 }
 
 impl spi::Transfer<u8> for Spi {
-    type Error = Error<(), ()>;
+    type Error = Error<(), (), ()>;
 
-    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+    fn try_transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -409,9 +351,9 @@ impl spi::Transfer<u8> for Spi {
 }
 
 impl spi::Write<u8> for Spi {
-    type Error = Error<(), ()>;
+    type Error = Error<(), (), ()>;
 
-    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    fn try_write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -424,10 +366,52 @@ impl spi::Write<u8> for Spi {
     }
 }
 
-impl v2::InputPin for Pin {
+impl spi::Transactional<u8> for Spi {
+    type Error = Error<(), (), ()>;
+
+    fn try_exec<'a>(&mut self, operations: &mut [spi::Operation<'a, u8>]) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        // Save actual calls
+        let t: Vec<MockExec> = operations
+            .as_mut()
+            .iter()
+            .map(|ref v| MockExec::from(*v))
+            .collect();
+        i.actual.push(MockTransaction::SpiExec(self.id, t));
+
+        let transactions = operations.as_mut();
+
+        // Load expected reads
+        if let MockTransaction::SpiExec(_id, e) = &i.expected[index] {
+            for i in 0..transactions.len() {
+                let t = &mut transactions[i];
+                let x = e.get(i);
+
+                match (t, x) {
+                    (spi::Operation::Transfer(ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
+                        t_in.copy_from_slice(&x_in)
+                    },
+                    (spi::Operation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
+                        //assert_eq!(t_out, x_out);
+                    },
+                    _ => (),
+                }
+            }
+        }
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
+    }
+}
+
+impl InputPin for Pin {
     type Error = ();
 
-    fn is_high(&self) -> Result<bool, Self::Error> {
+    fn try_is_high(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -446,7 +430,7 @@ impl v2::InputPin for Pin {
         Ok(v)
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
+    fn try_is_low(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -466,10 +450,10 @@ impl v2::InputPin for Pin {
     }
 }
 
-impl v2::OutputPin for Pin {
+impl OutputPin for Pin {
     type Error = ();
 
-    fn set_high(&mut self) -> Result<(), Self::Error> {
+    fn try_set_high(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -481,7 +465,7 @@ impl v2::OutputPin for Pin {
         Ok(())
     }
 
-    fn set_low(&mut self) -> Result<(), Self::Error> {
+    fn try_set_low(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -495,7 +479,9 @@ impl v2::OutputPin for Pin {
 }
 
 impl DelayMs<u32> for Delay {
-    fn delay_ms(&mut self, t: u32) {
+    type Error = ();
+
+    fn try_delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -503,6 +489,24 @@ impl DelayMs<u32> for Delay {
 
         // Update expectation index
         i.index += 1;
+
+        Ok(())
+    }
+}
+
+impl DelayUs<u32> for Delay {
+    type Error = ();
+
+    fn try_delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+
+        // Save actual call
+        i.actual.push(MockTransaction::DelayUs(t));
+
+        // Update expectation index
+        i.index += 1;
+
+        Ok(())
     }
 }
 
@@ -511,6 +515,7 @@ mod test {
     use std::*;
     use std::{panic, vec};
 
+    use crate::{PrefixRead, PrefixWrite};
     use super::*;
 
     #[test]
@@ -648,11 +653,11 @@ mod test {
             MockTransaction::set_low(&p),
         ]);
 
-        assert_eq!(true, p.is_high().unwrap());
-        assert_eq!(false, p.is_low().unwrap());
+        assert_eq!(true, p.try_is_high().unwrap());
+        assert_eq!(false, p.try_is_low().unwrap());
 
-        p.set_high().unwrap();
-        p.set_low().unwrap();
+        p.try_set_high().unwrap();
+        p.try_set_low().unwrap();
 
         m.finalise();
     }
@@ -668,7 +673,7 @@ mod test {
 
         m.expect(vec![MockTransaction::is_high(&p1, true)]);
 
-        p2.is_high().unwrap();
+        p2.try_is_high().unwrap();
 
         m.finalise();
     }
