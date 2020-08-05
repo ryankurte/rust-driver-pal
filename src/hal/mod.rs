@@ -2,7 +2,6 @@
 use std::string::{String, ToString};
 use std::time::{SystemTime, Duration};
 use std::marker::PhantomData;
-use std::convert::Infallible;
 
 use serde::{Deserialize};
 use structopt::StructOpt;
@@ -208,7 +207,7 @@ pub enum HalInputPin<'a> {
     Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::InputPin<'a>),
-    
+
     None,
 
     _Fake(PhantomData<&'a ()>),
@@ -301,7 +300,7 @@ pub struct HalPins<'a> {
 pub struct HalDelay;
 
 impl DelayMs<u32> for HalDelay {
-    type Error = Infallible;
+    type Error = HalError;
     
     fn try_delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         let n = SystemTime::now();
@@ -311,7 +310,7 @@ impl DelayMs<u32> for HalDelay {
     }
 }
 impl DelayUs<u32> for HalDelay {
-    type Error = Infallible;
+    type Error = HalError;
     
     fn try_delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         let n = SystemTime::now();
