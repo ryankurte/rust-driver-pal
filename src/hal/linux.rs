@@ -53,11 +53,23 @@ impl LinuxDriver {
             None => HalInputPin::None,
         };
 
+        let led0 = match pins.led0 {
+            Some(p) => HalOutputPin::Linux(load_pin(p, Direction::Out)?),
+            None => HalOutputPin::None,
+        };
+
+        let led1 = match pins.led1 {
+            Some(p) => HalOutputPin::Linux(load_pin(p, Direction::Out)?),
+            None => HalOutputPin::None,
+        };
+
         let pins = HalPins{
             cs: HalOutputPin::Linux(chip_select),
             reset: HalOutputPin::Linux(reset),
             busy,
             ready,
+            led0,
+            led1,
         };
         
         Ok(pins)

@@ -75,6 +75,14 @@ pub struct PinConfig {
     /// Ready (input) pin
     #[structopt(long = "ready-pin", env = "READY_PIN")]
     ready: Option<u64>,
+
+    /// LED 0 (output) pin
+    #[structopt(long = "led0-pin", env = "LED0_PIN")]
+    led0: Option<u64>,
+
+    /// LED 1 (output) pin
+    #[structopt(long = "led1-pin", env = "LED1_PIN")]
+    led1: Option<u64>,
 }
 
 /// Log configuration object
@@ -200,6 +208,7 @@ pub enum HalInputPin<'a> {
     Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::InputPin<'a>),
+    
     None,
 
     _Fake(PhantomData<&'a ()>),
@@ -282,7 +291,9 @@ pub struct HalPins<'a> {
    pub cs: HalOutputPin<'a>,
    pub reset: HalOutputPin<'a>,
    pub busy: HalInputPin<'a>,
-   pub ready: HalInputPin<'a>, 
+   pub ready: HalInputPin<'a>,
+   pub led0: HalOutputPin<'a>,
+   pub led1: HalOutputPin<'a>,
 }
 
 

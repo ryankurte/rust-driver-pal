@@ -50,11 +50,23 @@ impl Cp2130Driver {
             None => HalInputPin::None,
         };
 
+        let led0 = match pins.led0 {
+            Some(p) => HalOutputPin::Cp2130(cp2130.gpio_out(p as u8, GpioMode::PushPull, GpioLevel::Low)?),
+            None => HalOutputPin::None,
+        };
+
+        let led1 = match pins.led1 {
+            Some(p) => HalOutputPin::Cp2130(cp2130.gpio_out(p as u8, GpioMode::PushPull, GpioLevel::Low)?),
+            None => HalOutputPin::None,
+        };
+
         let pins = HalPins {
             cs: HalOutputPin::Cp2130(chip_select),
             reset: HalOutputPin::Cp2130(reset),
             busy,
             ready,
+            led0,
+            led1,
         };
 
         // Return object

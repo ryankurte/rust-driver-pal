@@ -13,19 +13,22 @@ ffi = [ "libc" ]
 utils = [ "hal" ]
 hal = [ "toml", "structopt", "serde", "simplelog" ]
 hal-cp2130 = [ "driver-cp2130" ]
-hal-linux = [ "linux-embedded-hal" ]
+hal-linux = [ "linux-embedded-hal", "linux-embedded-hal/transactional-spi" ]
 default = [ "mock", "hal", "hal-cp2130", "hal-linux" ]
 
 [dependencies]
-embedded-hal = { version = "1.0.0-alpha.0" }
-linux-embedded-hal = { version = "0.3.0", optional = true }
-libc = { version = "0.2.54", optional = true }
 log = "0.4.6"
+embedded-hal = { version = "1.0.0-alpha.0" }
+
+linux-embedded-hal = { version = "0.3.0", optional = true }
+driver-cp2130 = { version = "1.0.0-alpha.0", optional = true, features = ["transactional"] }
+libc = { version = "0.2.54", optional = true }
+
 serde = { version = "1.0.91", features = ["derive"], optional = true }
 toml = { version = "0.5.1", optional = true }
+
 structopt = { version = "0.3.11", optional = true }
 simplelog = { version = "0.5.3", optional = true }
-driver-cp2130 = { version = "1.0.0-alpha.0", optional = true, features = ["transactional"] }
 
 
 [patch.crates-io]
