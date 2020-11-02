@@ -80,6 +80,13 @@ impl MockTransaction {
         MockTransaction::SpiRead(spi.id, prefix.as_ref().to_vec(), incoming.as_ref().to_vec())
     }
 
+    pub fn spi_exec<O>(spi: &Spi, o: O) -> Self
+    where
+        O: AsRef<[MockExec]>,
+    {
+        MockTransaction::SpiExec(spi.id, o.as_ref().to_vec())
+    }
+
     pub fn busy(spi: &Spi, value: PinState) -> Self {
         MockTransaction::Busy(spi.id, value)
     }
@@ -526,14 +533,13 @@ mod test {
         let prefix = vec![0xFF];
         let data = vec![0xAA, 0xBB];
 
-        m.expect(vec![MockTransaction::spi_read(
+        m.expect(vec![MockTransaction::spi_exec(
             &s,
-            prefix.clone(),
-            data.clone(),
+            &[MockExec::SpiWrite(prefix.clone()), MockExec::SpiTransfer(vec![0u8; 2], data.clone())],
         )]);
 
         let mut d = [0u8; 2];
-        s.spi_read(&prefix, &mut d).expect("read failure");
+        s.try_prefix_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -555,7 +561,7 @@ mod test {
         )]);
 
         let mut d = [0u8; 2];
-        s.spi_read(&prefix, &mut d).expect("read failure");
+        s.try_prefix_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -575,7 +581,7 @@ mod test {
             data.clone(),
         )]);
 
-        s.spi_write(&prefix, &data).expect("write failure");
+        s.try_prefix_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
@@ -595,7 +601,7 @@ mod test {
             data.clone(),
         )]);
 
-        s.spi_write(&prefix, &data).expect("write failure");
+        s.try_prefix_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
@@ -611,7 +617,7 @@ mod test {
 
         m.expect(vec![MockTransaction::write(&s, data.clone())]);
 
-        s.write(&data).expect("write failure");
+        s.try_write(&data).expect("write failure");
 
         m.finalise();
     }
@@ -633,7 +639,7 @@ mod test {
         )]);
 
         let mut d = outgoing.clone();
-        s.transfer(&mut d).expect("read failure");
+        s.try_transfer(&mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&incoming, &d);
@@ -641,7 +647,7 @@ mod test {
 
     #[test]
     fn test_pins() {
-        use embedded_hal::digital::v2::{InputPin, OutputPin};
+        use embedded_hal::digital::{InputPin, OutputPin};
 
         let mut m = Mock::new();
         let mut p = m.pin();
@@ -665,7 +671,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_incorrect_pin() {
-        use embedded_hal::digital::v2::InputPin;
+        use embedded_hal::digital::InputPin;
 
         let mut m = Mock::new();
         let p1 = m.pin();

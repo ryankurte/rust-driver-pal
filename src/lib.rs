@@ -2,8 +2,8 @@
 //! This defines a higher level `Transactional` SPI interface, as well as an SPI `Transaction` enumeration
 //! that more closely map to the common uses of SPI peripherals, as well as some other common driver helpers.
 //!
-//! An `embedded_spi::wrapper::Wrapper` type is provided to wrap existing SPI implementations in this
-//! `embedded_spi::Transactional` interface, as well as a set of helpers for C compatibility enabled with
+//! An `driver_pal::wrapper::Wrapper` type is provided to wrap existing SPI implementations in this
+//! `driver_pal::Transactional` interface, as well as a set of helpers for C compatibility enabled with
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
 
 
@@ -152,7 +152,7 @@ pub enum PinState {
     High,
 }
 
-/// Automatic `embedded_spi::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+/// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
 impl <T, E> PrefixWrite for T 
 where
     T: spi::Transactional<u8, Error=E>, 
@@ -172,7 +172,7 @@ where
     }
 }
 
-/// Automatic `embedded_spi::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+/// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
 impl <T, E> PrefixRead for T 
 where
     T: spi::Transactional<u8, Error=E>, 
