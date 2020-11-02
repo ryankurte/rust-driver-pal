@@ -106,33 +106,25 @@ pub struct HalInst<'a> {
     pub pins: HalPins<'a>,
 }
 
-/// Base storage for Hal instances
-pub enum HalBase<'a> {
-    #[cfg(feature = "hal-cp2130")]
-    Cp2130(driver_cp2130::Cp2130<'a>),
-    None,
-
-    _Fake(PhantomData<&'a ()>),
-}
-
-impl DeviceConfig {
-
+impl <'a> HalInst<'a> {
     /// Load a hal instance from the provided configuration
-    pub fn load<'a>(&self) -> Result<HalInst<'a>, HalError> {
+    pub fn load(config: &DeviceConfig) -> Result<HalInst<'a>, HalError> {
 
         // Process HAL configuration options
-        let hal = match (&self.spi_dev, &self.cp2130_dev) {
+        let hal = match (&config.spi_dev, &config.cp2130_dev) {
             (Some(_), Some(_)) => {
                 error!("Only one of spi_dev and cp2130_dev may be specified");
                 return Err(HalError::InvalidConfig)
             },
             #[cfg(feature = "hal-linux")]
             (Some(s), None) => {
-                linux::LinuxDriver::new(s, &self.spi, &self.pins)?
+                debug!("Creating linux hal driver");
+                linux::LinuxDriver::new(s, &config.spi, &config.pins)?
             },
             #[cfg(feature = "hal-cp2130")]
             (None, Some(i)) => {
-                cp2130::Cp2130Driver::new(*i, &self.spi, &self.pins)?
+                debug!("Creating cp2130 hal driver");
+                cp2130::Cp2130Driver::new(*i, &config.spi, &config.pins)?
             },
             _ => {
                 error!("No SPI configuration provided or no matching implementation found");
@@ -144,6 +136,16 @@ impl DeviceConfig {
     }
 }
 
+
+/// Base storage for Hal instances
+pub enum HalBase<'a> {
+    #[cfg(feature = "hal-cp2130")]
+    Cp2130(driver_cp2130::Cp2130<'a>),
+    None,
+
+    _Fake(PhantomData<&'a ()>),
+}
+
 /// SPI hal wrapper
 pub enum HalSpi<'a> {
     #[cfg(feature = "hal-linux")]
@@ -153,6 +155,8 @@ pub enum HalSpi<'a> {
 
     _Fake(PhantomData<&'a ()>),
 }
+
+
 
 impl <'a> spi::Transfer<u8> for HalSpi<'a>
 {
