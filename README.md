@@ -22,3 +22,7 @@ This provides:
 
 [Open Issues](https://github.com/ryankurte/rust-driver-pal/issues)
 
+
+Currently patched-to-heck waiting on `embedded-hal` version `v1.0.0-alpha.3` with transactional SPI, and a bunch of
+downstream patches that depend on this.
+
