@@ -1,13 +1,12 @@
-# spi-hal
+# driver-pal
 
-Previously known as `embedded-spi`, new releases at [crates.io/crates/spi-hal](https://crates.io/crates/spi-hal). 
-A helper package for rust-embedded SPI traits and implementations, including testing approactes prior to proposing additions to embedded-hal.
+Previously known as `driver-pal`, new releases at [crates.io/crates/driver-pal](https://crates.io/crates/driver-pal). 
+A helper package for rust-embedded driver traits and implementations to assist with constructing drivers for embedded devices.
 
 
 This provides:
 
-- A Transactional SPI interface (https://github.com/rust-embedded/embedded-hal/pull/191)
-- A `CS` pin trait to communicate CS control for drivers
+- a `CS` pin trait to communicate CS control for drivers
 - a `Wrapper` type to provide this for an SPI and OutputPin implementation
 - a `Hal` that abstracts over a number of SPI implementations to assist with writing driver utilities
 - a `Mock` helper for testing drivers based on this
@@ -16,10 +15,10 @@ This provides:
 
 ## Status
 
-[![GitHub tag](https://img.shields.io/github/tag/ryankurte/rust-embedded-spi.svg)](https://github.com/ryankurte/rust-embedded-spi)
-[![Build Status](https://travis-ci.com/ryankurte/rust-embedded-spi.svg?branch=master)](https://travis-ci.com/ryankurte/rust-embedded-spi)
-[![Crates.io](https://img.shields.io/crates/v/embedded-spi.svg)](https://crates.io/crates/embedded-spi)
-[![Docs.rs](https://docs.rs/embedded-spi/badge.svg)](https://docs.rs/embedded-spi)
+[![GitHub tag](https://img.shields.io/github/tag/ryankurte/rust-driver-pal.svg)](https://github.com/ryankurte/rust-driver-pal)
+[![Build Status](https://travis-ci.com/ryankurte/rust-driver-pal.svg?branch=master)](https://travis-ci.com/ryankurte/rust-driver-pal)
+[![Crates.io](https://img.shields.io/crates/v/driver-pal.svg)](https://crates.io/crates/driver-pal)
+[![Docs.rs](https://docs.rs/driver-pal/badge.svg)](https://docs.rs/driver-pal)
 
-[Open Issues](https://github.com/ryankurte/rust-embedded-spi/issues)
+[Open Issues](https://github.com/ryankurte/rust-driver-pal/issues)
 
