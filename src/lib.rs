@@ -51,7 +51,7 @@ pub mod wrapper;
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use embedded_hal::blocking::spi;
 
-/// ManagedChipSelect marker trait indicates CS is managed by the drivert
+/// ManagedChipSelect marker trait indicates CS is managed by the driver
 pub trait ManagedChipSelect {}
 
 /// HAL trait abstracts commonly required functions for SPI peripherals
@@ -59,8 +59,7 @@ pub trait Hal<E>:
     PrefixWrite<Error=E> +
     PrefixRead<Error=E> +
 
-    spi::Write<u8, Error=E> +
-    spi::Transfer<u8, Error=E> +
+    spi::Transactional<u8, Error=E> +
     
     Busy<Error=E> + 
     Ready<Error=E> + 
@@ -74,8 +73,7 @@ impl <T, E> Hal<E> for T where T:
     PrefixWrite<Error=E> +
     PrefixRead<Error=E> +
 
-    spi::Write<u8, Error=E> +
-    spi::Transfer<u8, Error=E> + 
+    spi::Transactional<u8, Error=E> +
     
     Busy<Error=E> + 
     Ready<Error=E> + 
@@ -90,7 +88,7 @@ pub trait PrefixRead {
 
     /// Read writes the prefix buffer then reads into the input buffer
     /// Note that the values of the input buffer will also be output, because, SPI...
-    fn spi_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
+    fn try_prefix_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
 }
 
 /// PrefixWrite trait provides higher level, writye then write function
@@ -98,10 +96,11 @@ pub trait PrefixWrite {
     type Error;
 
     /// Write writes the prefix buffer then writes the output buffer
-    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
+    fn try_prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions
+/// Re-exported from embedded-hal
 pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a, u8>;
 
 /// Chip Select trait for peripherals supporting manual chip select
@@ -161,7 +160,7 @@ where
     type Error = E;
 
     /// Write data with the specified prefix
-    fn spi_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
+    fn try_prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         let mut ops = [
             spi::Operation::Write(prefix),
             spi::Operation::Write(data),
@@ -181,7 +180,7 @@ where
     type Error = E;
 
     /// Read data with the specified prefix
-    fn spi_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
+    fn try_prefix_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
         let mut ops = [
             spi::Operation::Write(prefix),
             spi::Operation::Transfer(data),

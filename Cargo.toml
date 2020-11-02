@@ -1,5 +1,5 @@
 [package]
-name = "embedded-spi"
+name = "driver-pal"
 description = "Rust embedded driver helper package"
 repository = "https://github.com/ryankurte/rust-spi-hal"
 version = "0.6.2"
@@ -13,12 +13,12 @@ ffi = [ "libc" ]
 utils = [ "hal" ]
 hal = [ "toml", "structopt", "serde", "simplelog" ]
 hal-cp2130 = [ "driver-cp2130" ]
-hal-linux = [ "linux-embedded-hal", "linux-embedded-hal/transactional-spi" ]
+hal-linux = [ "linux-embedded-hal" ]
 default = [ "mock", "hal", "hal-cp2130", "hal-linux" ]
 
 [dependencies]
 log = "0.4.6"
-embedded-hal = { version = "1.0.0-alpha.0" }
+embedded-hal = { version = "1.0.0-alpha.2" }
 
 linux-embedded-hal = { version = "0.3.0", optional = true }
 driver-cp2130 = { version = "1.0.0-alpha.0", optional = true, features = ["transactional"] }
@@ -32,6 +32,9 @@ simplelog = { version = "0.5.3", optional = true }
 
 
 [patch.crates-io]
-embedded-hal = { git = "https://github.com/ryankurte/embedded-hal", branch = "feature/spi-transactions" }
+# embedded-hal patch to master for SPI transactions (and 1.0.0-alpha)
+embedded-hal = { git = "https://github.com/rust-embedded/embedded-hal", branch = "master" }
+
+# linux-embedded-hal patch to add spi transaction support
 linux-embedded-hal = { git = "https://github.com/ryankurte/linux-embedded-hal.git", branch = "feature/spi-transactions" }
 

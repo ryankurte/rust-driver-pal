@@ -4,7 +4,7 @@
 
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::spi::{Transactional};
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::OutputPin;
 
 use crate::{PrefixWrite, PrefixRead};
 use crate::wrapper::Wrapper;
@@ -41,13 +41,13 @@ where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay> Cursed
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
+impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> Cursed
+    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 {
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
-    Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay>
+impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+    Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
     Spi: Transactional<u8, Error = SpiError>,
     CsPin: OutputPin<Error = PinError>,
@@ -69,7 +69,7 @@ where
         let data: &[u8] = unsafe { core::slice::from_raw_parts(data, data_len as usize) };
 
         // Execute command and handle errors
-        match s.spi_write(&prefix, &data) {
+        match s.try_prefix_write(&prefix, &data) {
             Ok(_) => 0,
             Err(_e) => {
                 // TODO: removed this from wrapper
@@ -96,7 +96,7 @@ where
             unsafe { core::slice::from_raw_parts_mut(data, data_len as usize) };
 
         // Execute command and handle errors
-        match s.spi_read(&prefix, &mut data) {
+        match s.try_prefix_read(&prefix, &mut data) {
             Ok(_) => 0,
             Err(_e) => {
                 // TODO: removed this from wrapper

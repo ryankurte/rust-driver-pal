@@ -91,7 +91,7 @@ where
 {
     type Error = Error<SpiError, PinError, DelayError>;
 
-    fn try_exec<'a>(&mut self, operations: &mut [spi::Operation<'a, u8>]) -> Result<(), Self::Error> {
+    fn try_exec<'a>(&mut self, operations: &mut [Operation<'a, u8>]) -> Result<(), Self::Error> {
         self.cs.try_set_low().map_err(Error::Pin)?;
 
         let r = spi::Transactional::try_exec(&mut self.spi, operations).map_err(Error::Spi);
