@@ -28,7 +28,7 @@ impl Cp2130Driver {
         let (device, descriptor) = Manager::device(Filter::default(), index)?;
 
         // Create CP2130 object
-        let cp2130 = Cp2130::new(device, descriptor)?;
+        let cp2130 = Cp2130::new(device, descriptor, UsbOptions::default())?;
 
         // Connect SPI
         let spi_config = spi.clone().try_into()?;
