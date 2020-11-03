@@ -6,7 +6,6 @@
 //! `driver_pal::Transactional` interface, as well as a set of helpers for C compatibility enabled with
 //! the `compat` feature, and a basic mocking adaptor enabled with the `mock` feature.
 
-
 #![cfg_attr(not(feature = "hal"), no_std)]
 
 #[macro_use]
@@ -44,9 +43,7 @@ extern crate driver_cp2130;
 #[cfg(feature = "hal")]
 pub mod hal;
 
-
 pub mod wrapper;
-
 
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use embedded_hal::blocking::spi;
@@ -56,31 +53,29 @@ pub trait ManagedChipSelect {}
 
 /// HAL trait abstracts commonly required functions for SPI peripherals
 pub trait Hal<E>:
-    PrefixWrite<Error=E> +
-    PrefixRead<Error=E> +
-
-    spi::Transactional<u8, Error=E> +
-    
-    Busy<Error=E> + 
-    Ready<Error=E> + 
-    Reset<Error=E> + 
-    
-    DelayMs<u32> + 
-    DelayUs<u32> {}
+    PrefixWrite<Error = E>
+    + PrefixRead<Error = E>
+    + spi::Transactional<u8, Error = E>
+    + Busy<Error = E>
+    + Ready<Error = E>
+    + Reset<Error = E>
+    + DelayMs<u32>
+    + DelayUs<u32>
+{
+}
 
 /// Default HAL trait impl over component traits
-impl <T, E> Hal<E> for T where T: 
-    PrefixWrite<Error=E> +
-    PrefixRead<Error=E> +
-
-    spi::Transactional<u8, Error=E> +
-    
-    Busy<Error=E> + 
-    Ready<Error=E> + 
-    Reset<Error=E> + 
-    
-    DelayMs<u32> + 
-    DelayUs<u32> {}
+impl<T, E> Hal<E> for T where
+    T: PrefixWrite<Error = E>
+        + PrefixRead<Error = E>
+        + spi::Transactional<u8, Error = E>
+        + Busy<Error = E>
+        + Ready<Error = E>
+        + Reset<Error = E>
+        + DelayMs<u32>
+        + DelayUs<u32>
+{
+}
 
 /// PrefixRead trait provides a higher level, write then read function
 pub trait PrefixRead {
@@ -127,7 +122,6 @@ pub trait Reset {
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error>;
 }
 
-
 /// Ready trait for peripherals that support a ready signal (or IRQ)
 pub trait Ready {
     type Error;
@@ -153,41 +147,42 @@ pub enum PinState {
 }
 
 /// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
-impl <T, E> PrefixWrite for T 
+impl<T, E> PrefixWrite for T
 where
-    T: spi::Transactional<u8, Error=E>, 
+    T: spi::Transactional<u8, Error = E>,
 {
     type Error = E;
 
     /// Write data with the specified prefix
     fn try_prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
-        let mut ops = [
-            spi::Operation::Write(prefix),
-            spi::Operation::Write(data),
-        ];
+        let mut ops = [spi::Operation::Write(prefix), spi::Operation::Write(data)];
 
         self.try_exec(&mut ops)?;
-        
+
         Ok(())
     }
 }
 
 /// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
-impl <T, E> PrefixRead for T 
+impl<T, E> PrefixRead for T
 where
-    T: spi::Transactional<u8, Error=E>, 
+    T: spi::Transactional<u8, Error = E>,
 {
     type Error = E;
 
     /// Read data with the specified prefix
-    fn try_prefix_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
+    fn try_prefix_read<'a>(
+        &mut self,
+        prefix: &[u8],
+        data: &'a mut [u8],
+    ) -> Result<(), Self::Error> {
         let mut ops = [
             spi::Operation::Write(prefix),
             spi::Operation::Transfer(data),
         ];
 
         self.try_exec(&mut ops)?;
-        
+
         Ok(())
     }
 }

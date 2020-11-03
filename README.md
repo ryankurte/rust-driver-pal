@@ -1,12 +1,12 @@
 # driver-pal
 
-Previously known as `driver-pal`, new releases at [crates.io/crates/driver-pal](https://crates.io/crates/driver-pal). 
-A helper package for rust-embedded driver traits and implementations to assist with constructing drivers for embedded devices.
+A helper package for rust-embedded driver traits and implementations to assist with constructing drivers for embedded devices, currently focussed on SPI with the intent to extend this to support I2C in the future.
+Previously known as `embedded-spi`, new releases at [crates.io/crates/driver-pal](https://crates.io/crates/driver-pal). 
 
 
 This provides:
 
-- a `CS` pin trait to communicate CS control for drivers
+- a `CS` pin trait to communicate CS control for SPI based drivers
 - a `Wrapper` type to provide this for an SPI and OutputPin implementation
 - a `Hal` that abstracts over a number of SPI implementations to assist with writing driver utilities
 - a `Mock` helper for testing drivers based on this
@@ -24,5 +24,9 @@ This provides:
 
 
 Currently patched-to-heck waiting on `embedded-hal` version `v1.0.0-alpha.3` with transactional SPI, and a bunch of
-downstream patches that depend on this.
+downstream patches that depend on this. You'll need to add the following patch line to any top-level project consuming this library:
 
+```toml
+[patch.crates-io]
+embedded-hal = { git = "https://github.com/rust-embedded/embedded-hal.git", branch = "master" }
+```

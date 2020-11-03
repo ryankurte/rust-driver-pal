@@ -3,12 +3,11 @@
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
 use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::{Transactional};
+use embedded_hal::blocking::spi::Transactional;
 use embedded_hal::digital::OutputPin;
 
-use crate::{PrefixWrite, PrefixRead};
 use crate::wrapper::Wrapper;
-
+use crate::{PrefixRead, PrefixWrite};
 
 /// Mark traits as cursed to provide a `Conv` implementation for FFI use
 pub trait Cursed {}

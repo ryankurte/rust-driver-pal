@@ -148,9 +148,7 @@ pub enum MockExec {
 impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
     fn from(t: &spi::Operation<'a, u8>) -> Self {
         match t {
-            spi::Operation::Write(ref d) => {
-                MockExec::SpiWrite(d.to_vec())
-            }
+            spi::Operation::Write(ref d) => MockExec::SpiWrite(d.to_vec()),
             spi::Operation::Transfer(ref d) => {
                 MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
             }
@@ -310,7 +308,6 @@ impl DelayMs<u32> for Spi {
     }
 }
 
-
 impl DelayUs<u32> for Spi {
     type Error = ();
 
@@ -376,7 +373,10 @@ impl spi::Write<u8> for Spi {
 impl spi::Transactional<u8> for Spi {
     type Error = Error<(), (), ()>;
 
-    fn try_exec<'a>(&mut self, operations: &mut [spi::Operation<'a, u8>]) -> Result<(), Self::Error> {
+    fn try_exec<'a>(
+        &mut self,
+        operations: &mut [spi::Operation<'a, u8>],
+    ) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -397,12 +397,13 @@ impl spi::Transactional<u8> for Spi {
                 let x = e.get(i);
 
                 match (t, x) {
-                    (spi::Operation::Transfer(ref mut t_in), Some(MockExec::SpiTransfer(_x_out, x_in))) => {
-                        t_in.copy_from_slice(&x_in)
-                    },
+                    (
+                        spi::Operation::Transfer(ref mut t_in),
+                        Some(MockExec::SpiTransfer(_x_out, x_in)),
+                    ) => t_in.copy_from_slice(&x_in),
                     (spi::Operation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
                         //assert_eq!(t_out, x_out);
-                    },
+                    }
                     _ => (),
                 }
             }
@@ -522,8 +523,8 @@ mod test {
     use std::*;
     use std::{panic, vec};
 
-    use crate::{PrefixRead, PrefixWrite};
     use super::*;
+    use crate::{PrefixRead, PrefixWrite};
 
     #[test]
     fn test_transactional_read() {
@@ -535,7 +536,10 @@ mod test {
 
         m.expect(vec![MockTransaction::spi_exec(
             &s,
-            &[MockExec::SpiWrite(prefix.clone()), MockExec::SpiTransfer(vec![0u8; 2], data.clone())],
+            &[
+                MockExec::SpiWrite(prefix.clone()),
+                MockExec::SpiTransfer(vec![0u8; 2], data.clone()),
+            ],
         )]);
 
         let mut d = [0u8; 2];

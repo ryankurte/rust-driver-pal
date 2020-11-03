@@ -1,7 +1,6 @@
-
 extern crate linux_embedded_hal;
 pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
-pub use linux_embedded_hal::{spidev, Delay, SysfsPin as Pindev, Spidev, spidev::SpiModeFlags};
+pub use linux_embedded_hal::{spidev, spidev::SpiModeFlags, Delay, Spidev, SysfsPin as Pindev};
 
 use super::*;
 
@@ -29,7 +28,7 @@ impl LinuxDriver {
 
         let pins = Self::load_pins(pins)?;
 
-        Ok(HalInst{ 
+        Ok(HalInst {
             base: HalBase::None,
             spi: HalSpi::Linux(spi),
             pins,
@@ -38,7 +37,6 @@ impl LinuxDriver {
 
     /// Load pins using the provided config
     fn load_pins<'a>(pins: &PinConfig) -> Result<HalPins<'a>, HalError> {
-
         let chip_select = load_pin(pins.chip_select, Direction::Out)?;
 
         let reset = load_pin(pins.reset, Direction::Out)?;
@@ -63,7 +61,7 @@ impl LinuxDriver {
             None => HalOutputPin::None,
         };
 
-        let pins = HalPins{
+        let pins = HalPins {
             cs: HalOutputPin::Linux(chip_select),
             reset: HalOutputPin::Linux(reset),
             busy,
@@ -71,7 +69,7 @@ impl LinuxDriver {
             led0,
             led1,
         };
-        
+
         Ok(pins)
     }
 }

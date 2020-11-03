@@ -1,11 +1,10 @@
-
 /// Error type combining SPI and Pin errors for utility
 #[derive(Debug)]
-pub enum HalError  {
+pub enum HalError {
     InvalidConfig,
     InvalidSpiMode,
     NoPin,
-    
+
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::Error),
 
