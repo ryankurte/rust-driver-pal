@@ -32,9 +32,9 @@ version = "1.0.0-alpha.3"
 [dependencies.linux-embedded-hal]
 version = "0.3.0"
 optional = true
-# linux-embedded-hal patch to add spi transaction support, blocked on e-h v1.0.0-alpha.3
-git = "https://github.com/rust-embedded/linux-embedded-hal.git"
-branch = "master"
+# linux-embedded-hal patch to add spi transaction support, blocked on l-e-h alpha release
+git = "https://github.com/ryankurte/linux-embedded-hal.git"
+branch = "feature/spi-transactions"
 
 [dependencies.driver-cp2130]
 version = "1.0.0-alpha.1"
