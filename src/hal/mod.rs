@@ -7,7 +7,7 @@ use structopt::StructOpt;
 
 use embedded_hal::digital;
 
-pub use simplelog::{LevelFilter, TermLogger};
+pub use simplelog::{LevelFilter, TermLogger, TerminalMode};
 
 pub mod error;
 pub use error::HalError;
@@ -91,7 +91,7 @@ pub struct LogConfig {
 impl LogConfig {
     /// Initialise logging with the provided level
     pub fn init(&self) {
-        TermLogger::init(self.level, simplelog::Config::default()).unwrap();
+        TermLogger::init(self.level, simplelog::Config::default(), TerminalMode::Mixed).unwrap();
     }
 }
 
