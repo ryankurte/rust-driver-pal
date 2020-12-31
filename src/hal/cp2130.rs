@@ -24,11 +24,11 @@ pub struct Cp2130Driver;
 
 impl Cp2130Driver {
     /// Load base CP2130 instance
-    pub fn new<'a>(
+    pub fn new(
         index: usize,
         spi: &SpiConfig,
         pins: &PinConfig,
-    ) -> Result<HalInst<'a>, HalError> {
+    ) -> Result<HalInst, HalError> {
         // Fetch the matching device and descriptor
         let (device, descriptor) = Manager::device(Filter::default(), index)?;
 

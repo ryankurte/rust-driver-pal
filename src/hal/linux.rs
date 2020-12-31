@@ -8,7 +8,7 @@ pub struct LinuxDriver;
 
 impl LinuxDriver {
     /// Load an SPI device using the provided configuration
-    pub fn new<'a>(path: &str, spi: &SpiConfig, pins: &PinConfig) -> Result<HalInst<'a>, HalError> {
+    pub fn new(path: &str, spi: &SpiConfig, pins: &PinConfig) -> Result<HalInst, HalError> {
         let mut flags = match spi.mode {
             0 => SpiModeFlags::SPI_MODE_0,
             1 => SpiModeFlags::SPI_MODE_1,
@@ -36,7 +36,7 @@ impl LinuxDriver {
     }
 
     /// Load pins using the provided config
-    fn load_pins<'a>(pins: &PinConfig) -> Result<HalPins<'a>, HalError> {
+    fn load_pins(pins: &PinConfig) -> Result<HalPins, HalError> {
         let chip_select = load_pin(pins.chip_select, Direction::Out)?;
 
         let reset = load_pin(pins.reset, Direction::Out)?;

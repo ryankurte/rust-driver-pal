@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::string::{String, ToString};
 use std::time::{Duration, SystemTime};
 
@@ -96,14 +95,14 @@ impl LogConfig {
 }
 
 /// HAL instance
-pub struct HalInst<'a> {
-    pub base: HalBase<'a>,
-    pub spi: HalSpi<'a>,
-    pub pins: HalPins<'a>,
+pub struct HalInst {
+    pub base: HalBase,
+    pub spi: HalSpi,
+    pub pins: HalPins,
 }
-impl<'a> HalInst<'a> {
+impl HalInst {
     /// Load a hal instance from the provided configuration
-    pub fn load(config: &DeviceConfig) -> Result<HalInst<'a>, HalError> {
+    pub fn load(config: &DeviceConfig) -> Result<HalInst, HalError> {
         // Process HAL configuration options
         let hal = match (&config.spi_dev, &config.cp2130_dev) {
             (Some(_), Some(_)) => {
@@ -136,25 +135,21 @@ impl<'a> HalInst<'a> {
 }
 
 /// Base storage for Hal instances
-pub enum HalBase<'a> {
+pub enum HalBase {
     #[cfg(feature = "hal-cp2130")]
-    Cp2130(driver_cp2130::Cp2130<'a>),
+    Cp2130(driver_cp2130::Cp2130),
     None,
-
-    _Fake(PhantomData<&'a ()>),
 }
 
 /// SPI hal wrapper
-pub enum HalSpi<'a> {
+pub enum HalSpi {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::Spidev),
     #[cfg(feature = "hal-cp2130")]
-    Cp2130(driver_cp2130::Spi<'a>),
-
-    _Fake(PhantomData<&'a ()>),
+    Cp2130(driver_cp2130::Spi),
 }
 
-impl<'a> spi::Transfer<u8> for HalSpi<'a> {
+impl spi::Transfer<u8> for HalSpi {
     type Error = HalError;
 
     fn try_transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
@@ -163,13 +158,12 @@ impl<'a> spi::Transfer<u8> for HalSpi<'a> {
             HalSpi::Linux(i) => i.try_transfer(data)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.try_transfer(data)?,
-            _ => unreachable!(),
         };
         Ok(r)
     }
 }
 
-impl<'a> spi::Write<u8> for HalSpi<'a> {
+impl spi::Write<u8> for HalSpi {
     type Error = HalError;
 
     fn try_write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
@@ -178,13 +172,12 @@ impl<'a> spi::Write<u8> for HalSpi<'a> {
             HalSpi::Linux(i) => i.try_write(data)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.try_write(data)?,
-            _ => unreachable!(),
         };
         Ok(())
     }
 }
 
-impl<'a> spi::Transactional<u8> for HalSpi<'a> {
+impl spi::Transactional<u8> for HalSpi {
     type Error = HalError;
 
     fn try_exec<'b>(
@@ -196,25 +189,21 @@ impl<'a> spi::Transactional<u8> for HalSpi<'a> {
             HalSpi::Linux(i) => i.try_exec(operations)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.try_exec(operations)?,
-            _ => unreachable!(),
         };
         Ok(())
     }
 }
 
 /// Input pin hal wrapper
-pub enum HalInputPin<'a> {
+pub enum HalInputPin {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
-    Cp2130(driver_cp2130::InputPin<'a>),
-
+    Cp2130(driver_cp2130::InputPin),
     None,
-
-    _Fake(PhantomData<&'a ()>),
 }
 
-impl<'a> digital::InputPin for HalInputPin<'a> {
+impl digital::InputPin for HalInputPin {
     type Error = HalError;
 
     fn try_is_high(&self) -> Result<bool, Self::Error> {
@@ -224,7 +213,6 @@ impl<'a> digital::InputPin for HalInputPin<'a> {
             #[cfg(feature = "hal-cp2130")]
             HalInputPin::Cp2130(i) => i.try_is_high()?,
             HalInputPin::None => return Err(HalError::NoPin),
-            _ => unreachable!(),
         };
 
         Ok(r)
@@ -236,17 +224,15 @@ impl<'a> digital::InputPin for HalInputPin<'a> {
 }
 
 /// Output pin hal wrapper
-pub enum HalOutputPin<'a> {
+pub enum HalOutputPin {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::SysfsPin),
     #[cfg(feature = "hal-cp2130")]
-    Cp2130(driver_cp2130::OutputPin<'a>),
+    Cp2130(driver_cp2130::OutputPin),
     None,
-
-    _Fake(PhantomData<&'a ()>),
 }
 
-impl<'a> digital::OutputPin for HalOutputPin<'a> {
+impl digital::OutputPin for HalOutputPin {
     type Error = HalError;
 
     fn try_set_high(&mut self) -> Result<(), Self::Error> {
@@ -256,7 +242,6 @@ impl<'a> digital::OutputPin for HalOutputPin<'a> {
             #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.try_set_high()?,
             HalOutputPin::None => return Err(HalError::NoPin),
-            _ => unreachable!(),
         }
         Ok(())
     }
@@ -268,7 +253,6 @@ impl<'a> digital::OutputPin for HalOutputPin<'a> {
             #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.try_set_low()?,
             HalOutputPin::None => return Err(HalError::NoPin),
-            _ => unreachable!(),
         }
         Ok(())
     }
@@ -284,13 +268,13 @@ where
 }
 
 /// HalPins object for conveniently returning bound pins
-pub struct HalPins<'a> {
-    pub cs: HalOutputPin<'a>,
-    pub reset: HalOutputPin<'a>,
-    pub busy: HalInputPin<'a>,
-    pub ready: HalInputPin<'a>,
-    pub led0: HalOutputPin<'a>,
-    pub led1: HalOutputPin<'a>,
+pub struct HalPins {
+    pub cs: HalOutputPin,
+    pub reset: HalOutputPin,
+    pub busy: HalInputPin,
+    pub ready: HalInputPin,
+    pub led0: HalOutputPin,
+    pub led1: HalOutputPin,
 }
 
 /// HalDelay object based on blocking SystemTime::elapsed calls
