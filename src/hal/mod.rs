@@ -24,19 +24,19 @@ use crate::*;
 pub struct DeviceConfig {
     /// Linux SpiDev SPI device
     #[structopt(long, group = "spi-kind", env = "SPI_DEV")]
-    spi_dev: Option<String>,
+    pub spi_dev: Option<String>,
 
     /// CP2130 SPI device
     #[structopt(long, group = "spi-kind", env = "CP2130_DEV")]
-    cp2130_dev: Option<usize>,
+    pub cp2130_dev: Option<usize>,
 
     #[structopt(flatten)]
     #[serde(flatten)]
-    spi: SpiConfig,
+    pub spi: SpiConfig,
 
     #[structopt(flatten)]
     #[serde(flatten)]
-    pins: PinConfig,
+    pub pins: PinConfig,
 }
 
 /// SPI device configuration
@@ -44,11 +44,11 @@ pub struct DeviceConfig {
 pub struct SpiConfig {
     /// Baud rate setting
     #[structopt(long = "spi-baud", default_value = "1000000", env = "SPI_BAUD")]
-    baud: u32,
+    pub baud: u32,
 
     /// SPI mode setting
     #[structopt(long = "spi-mode", default_value = "0", env = "SPI_MODE")]
-    mode: u32,
+    pub mode: u32,
 }
 
 /// Pin configuration object
@@ -56,27 +56,27 @@ pub struct SpiConfig {
 pub struct PinConfig {
     /// Chip Select (output) pin
     #[structopt(long = "cs-pin", default_value = "16", env = "CS_PIN")]
-    chip_select: u64,
+    pub chip_select: u64,
 
     /// Reset (output) pin
     #[structopt(long = "reset-pin", default_value = "17", env = "RESET_PIN")]
-    reset: u64,
+    pub reset: u64,
 
     /// Busy (input) pin
     #[structopt(long = "busy-pin", env = "BUSY_PIN")]
-    busy: Option<u64>,
+    pub busy: Option<u64>,
 
     /// Ready (input) pin
     #[structopt(long = "ready-pin", env = "READY_PIN")]
-    ready: Option<u64>,
+    pub ready: Option<u64>,
 
     /// LED 0 (output) pin
     #[structopt(long = "led0-pin", env = "LED0_PIN")]
-    led0: Option<u64>,
+    pub led0: Option<u64>,
 
     /// LED 1 (output) pin
     #[structopt(long = "led1-pin", env = "LED1_PIN")]
-    led1: Option<u64>,
+    pub led1: Option<u64>,
 }
 
 /// Log configuration object
