@@ -7,6 +7,17 @@ use crate::{Busy, Error, PinState, Ready, Reset};
 use embedded_hal::spi::blocking::{Operation as SpiOperation};
 
 
+#[derive(Clone, Debug)]
+pub struct PinError;
+
+#[derive(Clone, Debug)]
+pub struct SpiError;
+
+#[derive(Clone, Debug)]
+pub struct DelayError;
+
+pub type MockError = Error<SpiError, PinError, DelayError>;
+
 /// Base mock type
 pub struct Mock {
     inner: Arc<Mutex<Inner>>,
@@ -234,7 +245,7 @@ impl Mock {
 }
 
 impl Busy for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = PinError;
 
     /// Check peripheral busy status
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
@@ -255,7 +266,7 @@ impl Busy for Spi {
 }
 
 impl Ready for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = PinError;
 
     /// Check peripheral ready status
     fn get_ready(&mut self) -> Result<PinState, Self::Error> {
@@ -277,7 +288,7 @@ impl Ready for Spi {
 }
 
 impl Reset for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = PinError;
 
     /// Check peripheral ready status
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
@@ -292,7 +303,7 @@ impl Reset for Spi {
 }
 
 impl embedded_hal::delay::blocking::DelayMs<u32> for Spi {
-    type Error = ();
+    type Error = DelayError;
 
     fn delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -308,7 +319,7 @@ impl embedded_hal::delay::blocking::DelayMs<u32> for Spi {
 }
 
 impl embedded_hal::delay::blocking::DelayUs<u32> for Spi {
-    type Error = ();
+    type Error = DelayError;
 
     fn delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -324,7 +335,7 @@ impl embedded_hal::delay::blocking::DelayUs<u32> for Spi {
 }
 
 impl embedded_hal::spi::blocking::Transfer<u8> for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = MockError;
 
     fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -354,7 +365,7 @@ impl embedded_hal::spi::blocking::Transfer<u8> for Spi {
 }
 
 impl embedded_hal::spi::blocking::Write<u8> for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = MockError;
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -370,7 +381,7 @@ impl embedded_hal::spi::blocking::Write<u8> for Spi {
 }
 
 impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
-    type Error = Error<(), (), ()>;
+    type Error = MockError;
 
     fn exec<'a>(
         &mut self,
@@ -416,7 +427,7 @@ impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
 }
 
 impl embedded_hal::digital::blocking::InputPin for Pin {
-    type Error = ();
+    type Error = PinError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -458,7 +469,7 @@ impl embedded_hal::digital::blocking::InputPin for Pin {
 }
 
 impl embedded_hal::digital::blocking::OutputPin for Pin {
-    type Error = ();
+    type Error = PinError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -486,7 +497,7 @@ impl embedded_hal::digital::blocking::OutputPin for Pin {
 }
 
 impl embedded_hal::delay::blocking::DelayMs<u32> for Delay {
-    type Error = ();
+    type Error = DelayError;
 
     fn delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -502,7 +513,7 @@ impl embedded_hal::delay::blocking::DelayMs<u32> for Delay {
 }
 
 impl embedded_hal::delay::blocking::DelayUs<u32> for Delay {
-    type Error = ();
+    type Error = DelayError;
 
     fn delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
