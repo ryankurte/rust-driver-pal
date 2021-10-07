@@ -9,7 +9,7 @@ use embedded_hal::digital::blocking::{InputPin, OutputPin};
 use crate::{Busy, Error, ManagedChipSelect, PinState, Ready, Reset};
 
 /// Wrapper provides a wrapper around an SPI object with Chip Select management
-pub struct Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> {
+pub struct Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> {
     spi: Spi,
 
     cs: CsPin,
@@ -19,22 +19,20 @@ pub struct Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, 
     ready: ReadyPin,
 
     delay: Delay,
-
-    _e: core::marker::PhantomData<Error<SpiError, PinError, DelayError>>,
 }
 
 /// ManagedChipSelect indicates wrapper controls CS line
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     ManagedChipSelect
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 {
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
-    Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
+    Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: Write<u8, Error = SpiError> + Transfer<u8, Error = SpiError>,
-    CsPin: OutputPin<Error = PinError>,
+    Spi: Write<u8> + Transfer<u8>,
+    CsPin: OutputPin,
 {
     /// Create a new wrapper with the provided chip select pin
     pub fn new(
@@ -52,7 +50,6 @@ where
             busy,
             ready,
             delay,
-            _e: core::marker::PhantomData,
         }
     }
 
@@ -64,18 +61,21 @@ where
     }
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     Transfer<u8>
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::Transfer<u8, Error = SpiError>,
+    Spi: spi::Transfer<u8>,
     <Spi as spi::Transfer<u8>>::Error: core::fmt::Debug,
-    CsPin: OutputPin<Error = PinError>,
+    CsPin: OutputPin,
     <CsPin as OutputPin>::Error: core::fmt::Debug,
-    Delay: DelayMs<u32, Error=DelayError>,
+    Delay: DelayMs<u32>,
     <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = Error<
+        <Spi as spi::Transfer<u8>>::Error, 
+        <CsPin as OutputPin>::Error,
+        <Delay as DelayMs<u32>>::Error>;
 
     fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
@@ -89,17 +89,20 @@ where
 }
 
 /// `spi::Write` implementation managing the CS pin
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> spi::Write<u8>
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::Write<u8>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::Write<u8, Error = SpiError>,
+    Spi: spi::Write<u8>,
     <Spi as spi::Write<u8>>::Error: core::fmt::Debug,
-    CsPin: OutputPin<Error = PinError>,
+    CsPin: OutputPin,
     <CsPin as OutputPin>::Error: core::fmt::Debug,
-    Delay: DelayMs<u32, Error=DelayError>,
+    Delay: DelayMs<u32>,
     <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = Error<
+        <Spi as spi::Write<u8>>::Error, 
+        <CsPin as OutputPin>::Error,
+        <Delay as DelayMs<u32>>::Error>;
 
     fn write<'w>(&mut self, data: &'w [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
@@ -113,18 +116,21 @@ where
 }
 
 /// `spi::Transactional` implementation managing CS pin
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     spi::Transactional<u8>
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::Transactional<u8, Error = SpiError>,
+    Spi: spi::Transactional<u8>,
     <Spi as spi::Transactional<u8>>::Error: core::fmt::Debug,
-    CsPin: OutputPin<Error = PinError>,
+    CsPin: OutputPin,
     <CsPin as OutputPin>::Error: core::fmt::Debug,
-    Delay: DelayMs<u32, Error=DelayError>,
+    Delay: DelayMs<u32>,
     <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = Error<
+        <Spi as spi::Transactional<u8>>::Error, 
+        <CsPin as OutputPin>::Error,
+        <Delay as DelayMs<u32>>::Error>;
 
     fn exec<'a>(&mut self, operations: &mut [Operation<'a, u8>]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
@@ -138,34 +144,36 @@ where
 }
 
 /// Reset pin implementation for inner objects implementing `Reset`
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> Reset
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> Reset
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    ResetPin: OutputPin<Error = PinError>,
+    ResetPin: OutputPin,
+    <ResetPin as OutputPin>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = <ResetPin as OutputPin>::Error;
 
     /// Set the reset pin state
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
         match state {
-            PinState::High => self.reset.set_high().map_err(Error::Pin)?,
-            PinState::Low => self.reset.set_low().map_err(Error::Pin)?,
+            PinState::High => self.reset.set_high()?,
+            PinState::Low => self.reset.set_low()?,
         };
         Ok(())
     }
 }
 
 /// Busy pin implementation for inner objects implementing `Busy`
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> Busy
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> Busy
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    BusyPin: InputPin<Error = PinError>,
+    BusyPin: InputPin,
+    <BusyPin as InputPin>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = <BusyPin as InputPin>::Error;
 
     /// Fetch the busy pin state
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
-        match self.busy.is_high().map_err(Error::Pin)? {
+        match self.busy.is_high()? {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
         }
@@ -173,42 +181,43 @@ where
 }
 
 /// Ready pin implementation for inner object implementing `Ready`
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> Ready
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> Ready
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    ReadyPin: InputPin<Error = PinError>,
+    ReadyPin: InputPin,
+    <ReadyPin as InputPin>::Error: core::fmt::Debug,
 {
-    type Error = Error<SpiError, PinError, DelayError>;
+    type Error = <ReadyPin as InputPin>::Error;
 
     /// Fetch the ready pin state
     fn get_ready(&mut self) -> Result<PinState, Self::Error> {
-        match self.ready.is_high().map_err(Error::Pin)? {
+        match self.ready.is_high()? {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
         }
     }
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> DelayMs<u32>
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> DelayMs<u32>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Delay: DelayMs<u32, Error = DelayError>,
+    Delay: DelayMs<u32>,
     <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
-    type Error = DelayError;
+    type Error = <Delay as DelayMs<u32>>::Error;
 
     fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
         self.delay.delay_ms(ms)
     }
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> DelayUs<u32>
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> DelayUs<u32>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Delay: DelayUs<u32, Error = DelayError>,
+    Delay: DelayUs<u32>,
     <Delay as DelayUs<u32>>::Error: core::fmt::Debug,
 {
-    type Error = DelayError;
+    type Error = <Delay as DelayUs<u32>>::Error;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
         self.delay.delay_us(us)

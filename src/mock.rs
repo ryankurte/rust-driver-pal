@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::vec::Vec;
-use std::{panic, vec};
+use std::{vec};
 
 use crate::{Busy, Error, PinState, Ready, Reset};
 

@@ -2,9 +2,11 @@
 //! This module provides mechanisms to convert an abstract `Wrapper` object to and from c void pointers,
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
-use embedded_hal::blocking::delay::DelayMs;
-use embedded_hal::blocking::spi::Transactional;
-use embedded_hal::digital::OutputPin;
+use core::fmt::Debug;
+
+use embedded_hal::delay::blocking::DelayMs;
+use embedded_hal::spi::blocking::Transactional;
+use embedded_hal::digital::blocking::OutputPin;
 
 use crate::wrapper::Wrapper;
 use crate::{PrefixRead, PrefixWrite};
@@ -40,16 +42,18 @@ where
 }
 
 /// Mark Wrapper as a  c u r s e d  type to allow C coercion
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> Cursed
-    for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> Cursed
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 {
 }
 
-impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
-    Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
+    Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: Transactional<u8, Error = SpiError>,
-    CsPin: OutputPin<Error = PinError>,
+    Spi: Transactional<u8>,
+    <Spi as Transactional<u8>>::Error: Debug,
+    CsPin: OutputPin,
+    <CsPin as OutputPin>::Error: Debug,
     Delay: DelayMs<u32>,
 {
     /// C FFI compatible spi_write function for dependency injection

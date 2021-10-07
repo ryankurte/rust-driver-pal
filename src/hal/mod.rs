@@ -4,8 +4,6 @@ use std::time::{Duration, SystemTime};
 use serde::Deserialize;
 use structopt::StructOpt;
 
-use embedded_hal::digital;
-
 pub use simplelog::{LevelFilter, TermLogger, TerminalMode};
 
 pub mod error;
