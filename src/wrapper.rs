@@ -2,9 +2,9 @@
 //! This provides a `Wrapper` type that is generic over an `embedded_hal::blocking::spi`
 //! and `embedded_hal::digital::v2::OutputPin` to provide a transactional API for SPI transactions.
 
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_hal::blocking::spi::{self, Operation, Transfer, Write};
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::delay::blocking::{DelayMs, DelayUs};
+use embedded_hal::spi::blocking::{self as spi, Operation, Transfer, Write};
+use embedded_hal::digital::blocking::{InputPin, OutputPin};
 
 use crate::{Busy, Error, ManagedChipSelect, PinState, Ready, Reset};
 
@@ -65,22 +65,26 @@ where
 }
 
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
-    spi::Transfer<u8>
+    Transfer<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
-    Spi: Transfer<u8, Error = SpiError>,
+    Spi: spi::Transfer<u8, Error = SpiError>,
+    <Spi as spi::Transfer<u8>>::Error: core::fmt::Debug,
     CsPin: OutputPin<Error = PinError>,
+    <CsPin as OutputPin>::Error: core::fmt::Debug,
+    Delay: DelayMs<u32, Error=DelayError>,
+    <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
     type Error = Error<SpiError, PinError, DelayError>;
 
-    fn try_transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
-        self.cs.try_set_low().map_err(Error::Pin)?;
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
+        self.cs.set_low().map_err(Error::Pin)?;
 
-        let r = self.spi.try_transfer(data).map_err(Error::Spi);
+        self.spi.transfer(data).map_err(Error::Spi)?;
 
-        self.cs.try_set_high().map_err(Error::Pin)?;
+        self.cs.set_high().map_err(Error::Pin)?;
 
-        r
+        Ok(())
     }
 }
 
@@ -88,17 +92,21 @@ where
 impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError> spi::Write<u8>
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
-    Spi: Write<u8, Error = SpiError>,
+    Spi: spi::Write<u8, Error = SpiError>,
+    <Spi as spi::Write<u8>>::Error: core::fmt::Debug,
     CsPin: OutputPin<Error = PinError>,
+    <CsPin as OutputPin>::Error: core::fmt::Debug,
+    Delay: DelayMs<u32, Error=DelayError>,
+    <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
     type Error = Error<SpiError, PinError, DelayError>;
 
-    fn try_write<'w>(&mut self, data: &'w [u8]) -> Result<(), Self::Error> {
-        self.cs.try_set_low().map_err(Error::Pin)?;
+    fn write<'w>(&mut self, data: &'w [u8]) -> Result<(), Self::Error> {
+        self.cs.set_low().map_err(Error::Pin)?;
 
-        let r = self.spi.try_write(data).map_err(Error::Spi);
+        let r = self.spi.write(data).map_err(Error::Spi);
 
-        self.cs.try_set_high().map_err(Error::Pin)?;
+        self.cs.set_high().map_err(Error::Pin)?;
 
         r
     }
@@ -110,16 +118,20 @@ impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayEr
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
     Spi: spi::Transactional<u8, Error = SpiError>,
+    <Spi as spi::Transactional<u8>>::Error: core::fmt::Debug,
     CsPin: OutputPin<Error = PinError>,
+    <CsPin as OutputPin>::Error: core::fmt::Debug,
+    Delay: DelayMs<u32, Error=DelayError>,
+    <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
     type Error = Error<SpiError, PinError, DelayError>;
 
-    fn try_exec<'a>(&mut self, operations: &mut [Operation<'a, u8>]) -> Result<(), Self::Error> {
-        self.cs.try_set_low().map_err(Error::Pin)?;
+    fn exec<'a>(&mut self, operations: &mut [Operation<'a, u8>]) -> Result<(), Self::Error> {
+        self.cs.set_low().map_err(Error::Pin)?;
 
-        let r = spi::Transactional::try_exec(&mut self.spi, operations).map_err(Error::Spi);
+        let r = spi::Transactional::exec(&mut self.spi, operations).map_err(Error::Spi);
 
-        self.cs.try_set_high().map_err(Error::Pin)?;
+        self.cs.set_high().map_err(Error::Pin)?;
 
         r
     }
@@ -136,8 +148,8 @@ where
     /// Set the reset pin state
     fn set_reset(&mut self, state: PinState) -> Result<(), Self::Error> {
         match state {
-            PinState::High => self.reset.try_set_high().map_err(Error::Pin)?,
-            PinState::Low => self.reset.try_set_low().map_err(Error::Pin)?,
+            PinState::High => self.reset.set_high().map_err(Error::Pin)?,
+            PinState::Low => self.reset.set_low().map_err(Error::Pin)?,
         };
         Ok(())
     }
@@ -153,7 +165,7 @@ where
 
     /// Fetch the busy pin state
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
-        match self.busy.try_is_high().map_err(Error::Pin)? {
+        match self.busy.is_high().map_err(Error::Pin)? {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
         }
@@ -170,7 +182,7 @@ where
 
     /// Fetch the ready pin state
     fn get_ready(&mut self) -> Result<PinState, Self::Error> {
-        match self.ready.try_is_high().map_err(Error::Pin)? {
+        match self.ready.is_high().map_err(Error::Pin)? {
             true => Ok(PinState::High),
             false => Ok(PinState::Low),
         }
@@ -181,11 +193,12 @@ impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayEr
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
     Delay: DelayMs<u32, Error = DelayError>,
+    <Delay as DelayMs<u32>>::Error: core::fmt::Debug,
 {
     type Error = DelayError;
 
-    fn try_delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        self.delay.try_delay_ms(ms)
+    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
+        self.delay.delay_ms(ms)
     }
 }
 
@@ -193,10 +206,11 @@ impl<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayEr
     for Wrapper<Spi, SpiError, CsPin, BusyPin, ReadyPin, ResetPin, PinError, Delay, DelayError>
 where
     Delay: DelayUs<u32, Error = DelayError>,
+    <Delay as DelayUs<u32>>::Error: core::fmt::Debug,
 {
     type Error = DelayError;
 
-    fn try_delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
-        self.delay.try_delay_us(us)
+    fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {
+        self.delay.delay_us(us)
     }
 }

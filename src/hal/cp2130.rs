@@ -8,12 +8,12 @@ use super::{
 use crate::*;
 
 /// Convert a generic SPI config object into a CP2130 object
-impl TryInto<driver_cp2130::SpiConfig> for SpiConfig {
+impl TryFrom<super::SpiConfig> for driver_cp2130::SpiConfig {
     type Error = HalError;
 
-    fn try_into(self) -> Result<driver_cp2130::SpiConfig, Self::Error> {
+    fn try_from(c: super::SpiConfig) -> Result<driver_cp2130::SpiConfig, Self::Error> {
         Ok(driver_cp2130::SpiConfig {
-            clock: SpiClock::try_from(self.baud as usize)?,
+            clock: SpiClock::try_from(c.baud as usize)?,
             ..driver_cp2130::SpiConfig::default()
         })
     }
@@ -26,7 +26,7 @@ impl Cp2130Driver {
     /// Load base CP2130 instance
     pub fn new(
         index: usize,
-        spi: &SpiConfig,
+        spi_config: &SpiConfig,
         pins: &PinConfig,
     ) -> Result<HalInst, HalError> {
         // Fetch the matching device and descriptor
@@ -36,8 +36,7 @@ impl Cp2130Driver {
         let cp2130 = Cp2130::new(device, descriptor, UsbOptions::default())?;
 
         // Connect SPI
-        let spi_config = spi.clone().try_into()?;
-        let spi = cp2130.spi(0, spi_config)?;
+        let spi = cp2130.spi(0, spi_config.clone().try_into()?)?;
 
         // Connect pins
 

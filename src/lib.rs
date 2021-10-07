@@ -45,9 +45,6 @@ pub mod hal;
 
 pub mod wrapper;
 
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_hal::blocking::spi;
-
 /// ManagedChipSelect marker trait indicates CS is managed by the driver
 pub trait ManagedChipSelect {}
 
@@ -55,12 +52,12 @@ pub trait ManagedChipSelect {}
 pub trait Hal<E>:
     PrefixWrite<Error = E>
     + PrefixRead<Error = E>
-    + spi::Transactional<u8, Error = E>
+    + embedded_hal::spi::blocking::Transactional<u8, Error = E>
     + Busy<Error = E>
     + Ready<Error = E>
     + Reset<Error = E>
-    + DelayMs<u32>
-    + DelayUs<u32>
+    + embedded_hal::delay::blocking::DelayMs<u32>
+    + embedded_hal::delay::blocking::DelayUs<u32>
 {
 }
 
@@ -68,12 +65,12 @@ pub trait Hal<E>:
 impl<T, E> Hal<E> for T where
     T: PrefixWrite<Error = E>
         + PrefixRead<Error = E>
-        + spi::Transactional<u8, Error = E>
+        + embedded_hal::spi::blocking::Transactional<u8, Error = E>
         + Busy<Error = E>
         + Ready<Error = E>
         + Reset<Error = E>
-        + DelayMs<u32>
-        + DelayUs<u32>
+        + embedded_hal::delay::blocking::DelayMs<u32>
+        + embedded_hal::delay::blocking::DelayUs<u32>
 {
 }
 
@@ -83,7 +80,7 @@ pub trait PrefixRead {
 
     /// Read writes the prefix buffer then reads into the input buffer
     /// Note that the values of the input buffer will also be output, because, SPI...
-    fn try_prefix_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
+    fn prefix_read(&mut self, prefix: &[u8], data: &mut [u8]) -> Result<(), Self::Error>;
 }
 
 /// PrefixWrite trait provides higher level, writye then write function
@@ -91,12 +88,12 @@ pub trait PrefixWrite {
     type Error;
 
     /// Write writes the prefix buffer then writes the output buffer
-    fn try_prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
+    fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 }
 
 /// Transaction enum defines possible SPI transactions
 /// Re-exported from embedded-hal
-pub type Transaction<'a> = embedded_hal::blocking::spi::Operation<'a, u8>;
+pub type Transaction<'a> = embedded_hal::spi::blocking::Operation<'a, u8>;
 
 /// Chip Select trait for peripherals supporting manual chip select
 pub trait ChipSelect {
@@ -146,42 +143,46 @@ pub enum PinState {
     High,
 }
 
+use embedded_hal::spi::blocking::{Transactional, Operation};
+
 /// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
-impl<T, E> PrefixWrite for T
+impl<T> PrefixWrite for T
 where
-    T: spi::Transactional<u8, Error = E>,
+    T: Transactional<u8>,
+    <T as Transactional<u8>>::Error: core::fmt::Debug,
 {
-    type Error = E;
+    type Error = <T as Transactional<u8>>::Error;
 
     /// Write data with the specified prefix
-    fn try_prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
-        let mut ops = [spi::Operation::Write(prefix), spi::Operation::Write(data)];
+    fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
+        let mut ops = [Operation::Write(prefix), Operation::Write(data)];
 
-        self.try_exec(&mut ops)?;
+        self.exec(&mut ops)?;
 
         Ok(())
     }
 }
 
 /// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
-impl<T, E> PrefixRead for T
+impl<T> PrefixRead for T
 where
-    T: spi::Transactional<u8, Error = E>,
+    T: Transactional<u8>,
+    <T as Transactional<u8>>::Error: core::fmt::Debug,
 {
-    type Error = E;
+    type Error = <T as Transactional<u8>>::Error;
 
     /// Read data with the specified prefix
-    fn try_prefix_read<'a>(
+    fn prefix_read<'a>(
         &mut self,
         prefix: &[u8],
         data: &'a mut [u8],
     ) -> Result<(), Self::Error> {
         let mut ops = [
-            spi::Operation::Write(prefix),
-            spi::Operation::Transfer(data),
+            Operation::Write(prefix),
+            Operation::Transfer(data),
         ];
 
-        self.try_exec(&mut ops)?;
+        self.exec(&mut ops)?;
 
         Ok(())
     }

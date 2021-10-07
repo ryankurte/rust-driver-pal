@@ -4,9 +4,8 @@ use std::{panic, vec};
 
 use crate::{Busy, Error, PinState, Ready, Reset};
 
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_hal::blocking::spi;
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::spi::blocking::{Operation as SpiOperation};
+
 
 /// Base mock type
 pub struct Mock {
@@ -145,11 +144,11 @@ pub enum MockExec {
     SpiTransfer(Vec<u8>, Vec<u8>),
 }
 
-impl<'a> From<&spi::Operation<'a, u8>> for MockExec {
-    fn from(t: &spi::Operation<'a, u8>) -> Self {
+impl<'a> From<&SpiOperation<'a, u8>> for MockExec {
+    fn from(t: &SpiOperation<'a, u8>) -> Self {
         match t {
-            spi::Operation::Write(ref d) => MockExec::SpiWrite(d.to_vec()),
-            spi::Operation::Transfer(ref d) => {
+            SpiOperation::Write(ref d) => MockExec::SpiWrite(d.to_vec()),
+            SpiOperation::Transfer(ref d) => {
                 MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
             }
         }
@@ -292,10 +291,10 @@ impl Reset for Spi {
     }
 }
 
-impl DelayMs<u32> for Spi {
+impl embedded_hal::delay::blocking::DelayMs<u32> for Spi {
     type Error = ();
 
-    fn try_delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
+    fn delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -308,10 +307,10 @@ impl DelayMs<u32> for Spi {
     }
 }
 
-impl DelayUs<u32> for Spi {
+impl embedded_hal::delay::blocking::DelayUs<u32> for Spi {
     type Error = ();
 
-    fn try_delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
+    fn delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -324,10 +323,10 @@ impl DelayUs<u32> for Spi {
     }
 }
 
-impl spi::Transfer<u8> for Spi {
+impl embedded_hal::spi::blocking::Transfer<u8> for Spi {
     type Error = Error<(), (), ()>;
 
-    fn try_transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<&'w [u8], Self::Error> {
+    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -350,14 +349,14 @@ impl spi::Transfer<u8> for Spi {
         // Update expectation index
         i.index += 1;
 
-        Ok(data)
+        Ok(())
     }
 }
 
-impl spi::Write<u8> for Spi {
+impl embedded_hal::spi::blocking::Write<u8> for Spi {
     type Error = Error<(), (), ()>;
 
-    fn try_write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -370,12 +369,12 @@ impl spi::Write<u8> for Spi {
     }
 }
 
-impl spi::Transactional<u8> for Spi {
+impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
     type Error = Error<(), (), ()>;
 
-    fn try_exec<'a>(
+    fn exec<'a>(
         &mut self,
-        operations: &mut [spi::Operation<'a, u8>],
+        operations: &mut [SpiOperation<'a, u8>],
     ) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
@@ -398,10 +397,10 @@ impl spi::Transactional<u8> for Spi {
 
                 match (t, x) {
                     (
-                        spi::Operation::Transfer(ref mut t_in),
+                        SpiOperation::Transfer(ref mut t_in),
                         Some(MockExec::SpiTransfer(_x_out, x_in)),
                     ) => t_in.copy_from_slice(&x_in),
-                    (spi::Operation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
+                    (SpiOperation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
                         //assert_eq!(t_out, x_out);
                     }
                     _ => (),
@@ -416,10 +415,10 @@ impl spi::Transactional<u8> for Spi {
     }
 }
 
-impl InputPin for Pin {
+impl embedded_hal::digital::blocking::InputPin for Pin {
     type Error = ();
 
-    fn try_is_high(&self) -> Result<bool, Self::Error> {
+    fn is_high(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -438,7 +437,7 @@ impl InputPin for Pin {
         Ok(v)
     }
 
-    fn try_is_low(&self) -> Result<bool, Self::Error> {
+    fn is_low(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -458,10 +457,10 @@ impl InputPin for Pin {
     }
 }
 
-impl OutputPin for Pin {
+impl embedded_hal::digital::blocking::OutputPin for Pin {
     type Error = ();
 
-    fn try_set_high(&mut self) -> Result<(), Self::Error> {
+    fn set_high(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -473,7 +472,7 @@ impl OutputPin for Pin {
         Ok(())
     }
 
-    fn try_set_low(&mut self) -> Result<(), Self::Error> {
+    fn set_low(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -486,10 +485,10 @@ impl OutputPin for Pin {
     }
 }
 
-impl DelayMs<u32> for Delay {
+impl embedded_hal::delay::blocking::DelayMs<u32> for Delay {
     type Error = ();
 
-    fn try_delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
+    fn delay_ms(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -502,10 +501,10 @@ impl DelayMs<u32> for Delay {
     }
 }
 
-impl DelayUs<u32> for Delay {
+impl embedded_hal::delay::blocking::DelayUs<u32> for Delay {
     type Error = ();
 
-    fn try_delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
+    fn delay_us(&mut self, t: u32) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
         // Save actual call
@@ -522,6 +521,10 @@ impl DelayUs<u32> for Delay {
 mod test {
     use std::*;
     use std::{panic, vec};
+
+    use embedded_hal::spi::blocking::*;
+    use embedded_hal::digital::blocking::*;
+    use embedded_hal::delay::blocking::*;
 
     use super::*;
     use crate::{PrefixRead, PrefixWrite};
@@ -545,7 +548,7 @@ mod test {
         )]);
 
         let mut d = [0u8; 2];
-        s.try_prefix_read(&prefix, &mut d).expect("read failure");
+        s.prefix_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -567,7 +570,7 @@ mod test {
         )]);
 
         let mut d = [0u8; 2];
-        s.try_prefix_read(&prefix, &mut d).expect("read failure");
+        s.prefix_read(&prefix, &mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&data, &d);
@@ -589,7 +592,7 @@ mod test {
             data.clone(),
         )]);
 
-        s.try_prefix_write(&prefix, &data).expect("write failure");
+        s.prefix_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
@@ -609,15 +612,13 @@ mod test {
             data.clone(),
         )]);
 
-        s.try_prefix_write(&prefix, &data).expect("write failure");
+        s.prefix_write(&prefix, &data).expect("write failure");
 
         m.finalise();
     }
 
     #[test]
     fn test_standard_write() {
-        use embedded_hal::blocking::spi::Write;
-
         let mut m = Mock::new();
         let mut s = m.spi();
 
@@ -625,15 +626,13 @@ mod test {
 
         m.expect(vec![MockTransaction::write(&s, data.clone())]);
 
-        s.try_write(&data).expect("write failure");
+        s.write(&data).expect("write failure");
 
         m.finalise();
     }
 
     #[test]
     fn test_standard_transfer() {
-        use embedded_hal::blocking::spi::Transfer;
-
         let mut m = Mock::new();
         let mut s = m.spi();
 
@@ -647,7 +646,7 @@ mod test {
         )]);
 
         let mut d = outgoing.clone();
-        s.try_transfer(&mut d).expect("read failure");
+        s.transfer(&mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&incoming, &d);
@@ -655,8 +654,6 @@ mod test {
 
     #[test]
     fn test_pins() {
-        use embedded_hal::digital::{InputPin, OutputPin};
-
         let mut m = Mock::new();
         let mut p = m.pin();
 
@@ -667,11 +664,11 @@ mod test {
             MockTransaction::set_low(&p),
         ]);
 
-        assert_eq!(true, p.try_is_high().unwrap());
-        assert_eq!(false, p.try_is_low().unwrap());
+        assert_eq!(true, p.is_high().unwrap());
+        assert_eq!(false, p.is_low().unwrap());
 
-        p.try_set_high().unwrap();
-        p.try_set_low().unwrap();
+        p.set_high().unwrap();
+        p.set_low().unwrap();
 
         m.finalise();
     }
@@ -679,15 +676,13 @@ mod test {
     #[test]
     #[should_panic]
     fn test_incorrect_pin() {
-        use embedded_hal::digital::InputPin;
-
         let mut m = Mock::new();
         let p1 = m.pin();
         let p2 = m.pin();
 
         m.expect(vec![MockTransaction::is_high(&p1, true)]);
 
-        p2.try_is_high().unwrap();
+        p2.is_high().unwrap();
 
         m.finalise();
     }
