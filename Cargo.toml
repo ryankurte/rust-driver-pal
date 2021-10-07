@@ -2,7 +2,7 @@
 name = "driver-pal"
 description = "Rust embedded driver helper package"
 repository = "https://github.com/ryankurte/rust-driver-pal"
-version = "0.8.0-alpha.4"
+version = "0.8.0-alpha.5"
 authors = ["Ryan Kurte <ryankurte@gmail.com>"]
 edition = "2018"
 license = "MIT"
