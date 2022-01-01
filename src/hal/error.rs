@@ -57,3 +57,9 @@ impl From<linux_embedded_hal::sysfs_gpio::Error> for HalError {
         Self::Sysfs(e)
     }
 }
+
+impl embedded_hal::spi::Error for HalError {
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
+        embedded_hal::spi::ErrorKind::Other
+    }
+}

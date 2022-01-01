@@ -56,8 +56,7 @@ pub trait Hal<E>:
     + Busy<Error = E>
     + Ready<Error = E>
     + Reset<Error = E>
-    + embedded_hal::delay::blocking::DelayMs<u32>
-    + embedded_hal::delay::blocking::DelayUs<u32>
+    + embedded_hal::delay::blocking::DelayUs
 {
 }
 
@@ -69,8 +68,7 @@ impl<T, E> Hal<E> for T where
         + Busy<Error = E>
         + Ready<Error = E>
         + Reset<Error = E>
-        + embedded_hal::delay::blocking::DelayMs<u32>
-        + embedded_hal::delay::blocking::DelayUs<u32>
+        + embedded_hal::delay::blocking::DelayUs
 {
 }
 
@@ -136,6 +134,14 @@ pub enum Error<SpiError, PinError, DelayError> {
     Aborted,
 }
 
+impl<I,J,K> embedded_hal::spi::Error for Error< I, J, K >
+    where I: core::fmt::Debug,
+        J: core::fmt::Debug,
+        K: core::fmt::Debug,
+{
+    fn kind(&self) -> embedded_hal::spi::ErrorKind { todo!() }
+}
+
 /// PinState enum used for busy indication
 #[derive(Debug, Clone, PartialEq)]
 pub enum PinState {
@@ -179,7 +185,7 @@ where
     ) -> Result<(), Self::Error> {
         let mut ops = [
             Operation::Write(prefix),
-            Operation::Transfer(data),
+            Operation::TransferInplace(data),
         ];
 
         self.exec(&mut ops)?;

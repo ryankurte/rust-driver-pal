@@ -88,7 +88,12 @@ pub struct LogConfig {
 impl LogConfig {
     /// Initialise logging with the provided level
     pub fn init(&self) {
-        TermLogger::init(self.level, simplelog::Config::default(), TerminalMode::Mixed).unwrap();
+        TermLogger::init(
+            self.level,
+            simplelog::Config::default(),
+            TerminalMode::Mixed,
+        )
+        .unwrap();
     }
 }
 
@@ -147,15 +152,16 @@ pub enum HalSpi {
     Cp2130(driver_cp2130::Spi),
 }
 
-impl embedded_hal::spi::blocking::Transfer<u8> for HalSpi {
+impl embedded_hal::spi::blocking::TransferInplace<u8> for HalSpi {
     type Error = HalError;
 
-    fn transfer<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
+    fn transfer_inplace<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
             HalSpi::Linux(i) => i.transfer(data)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.transfer(data)?,
+            _ => todo!()
         }
         Ok(())
     }
@@ -170,6 +176,7 @@ impl embedded_hal::spi::blocking::Write<u8> for HalSpi {
             HalSpi::Linux(i) => i.write(data)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.write(data)?,
+            _ => todo!()
         }
         Ok(())
     }
@@ -180,15 +187,13 @@ use embedded_hal::spi::blocking::Operation;
 impl embedded_hal::spi::blocking::Transactional<u8> for HalSpi {
     type Error = HalError;
 
-    fn exec<'b>(
-        &mut self,
-        operations: &mut [Operation<'b, u8>],
-    ) -> Result<(), Self::Error> {
+    fn exec<'b>(&mut self, operations: &mut [Operation<'b, u8>]) -> Result<(), Self::Error> {
         match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
             HalSpi::Linux(i) => i.exec(operations)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.exec(operations)?,
+            _ => todo!()
         }
         Ok(())
     }
@@ -280,17 +285,7 @@ pub struct HalPins {
 /// HalDelay object based on blocking SystemTime::elapsed calls
 pub struct HalDelay;
 
-impl embedded_hal::delay::blocking::DelayMs<u32> for HalDelay {
-    type Error = HalError;
-
-    fn delay_ms(&mut self, ms: u32) -> Result<(), Self::Error> {
-        let n = SystemTime::now();
-        let d = Duration::from_millis(ms as u64);
-        while n.elapsed().unwrap() < d {}
-        Ok(())
-    }
-}
-impl embedded_hal::delay::blocking::DelayUs<u32> for HalDelay {
+impl embedded_hal::delay::blocking::DelayUs for HalDelay {
     type Error = HalError;
 
     fn delay_us(&mut self, us: u32) -> Result<(), Self::Error> {

@@ -4,9 +4,9 @@
 
 use core::fmt::Debug;
 
-use embedded_hal::delay::blocking::DelayMs;
-use embedded_hal::spi::blocking::Transactional;
+use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::OutputPin;
+use embedded_hal::spi::blocking::Transactional;
 
 use crate::wrapper::Wrapper;
 use crate::{PrefixRead, PrefixWrite};
@@ -54,7 +54,7 @@ where
     <Spi as Transactional<u8>>::Error: Debug,
     CsPin: OutputPin,
     <CsPin as OutputPin>::Error: Debug,
-    Delay: DelayMs<u32>,
+    Delay: DelayUs,
 {
     /// C FFI compatible spi_write function for dependency injection
     pub extern "C" fn ffi_spi_write(
