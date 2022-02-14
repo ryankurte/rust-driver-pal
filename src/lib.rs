@@ -56,8 +56,7 @@ pub trait Hal<E>:
     + Busy<Error = E>
     + Ready<Error = E>
     + Reset<Error = E>
-    + embedded_hal::delay::blocking::DelayMs<u32>
-    + embedded_hal::delay::blocking::DelayUs<u32>
+    + embedded_hal::delay::blocking::DelayUs
 {
 }
 
@@ -69,8 +68,7 @@ impl<T, E> Hal<E> for T where
         + Busy<Error = E>
         + Ready<Error = E>
         + Reset<Error = E>
-        + embedded_hal::delay::blocking::DelayMs<u32>
-        + embedded_hal::delay::blocking::DelayUs<u32>
+        + embedded_hal::delay::blocking::DelayUs
 {
 }
 
@@ -136,6 +134,15 @@ pub enum Error<SpiError, PinError, DelayError> {
     Aborted,
 }
 
+impl<SpiError, PinError, DelayError> embedded_hal::spi::Error for Error<SpiError, PinError, DelayError>
+where 
+    SpiError: core::fmt::Debug,
+    PinError: core::fmt::Debug,
+    DelayError: core::fmt::Debug,
+{
+    fn kind(&self) -> embedded_hal::spi::ErrorKind { embedded_hal::spi::ErrorKind::Other }
+}
+
 /// PinState enum used for busy indication
 #[derive(Debug, Clone, PartialEq)]
 pub enum PinState {
@@ -149,9 +156,9 @@ use embedded_hal::spi::blocking::{Transactional, Operation};
 impl<T> PrefixWrite for T
 where
     T: Transactional<u8>,
-    <T as Transactional<u8>>::Error: core::fmt::Debug,
+    <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
-    type Error = <T as Transactional<u8>>::Error;
+    type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Write data with the specified prefix
     fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
@@ -167,9 +174,9 @@ where
 impl<T> PrefixRead for T
 where
     T: Transactional<u8>,
-    <T as Transactional<u8>>::Error: core::fmt::Debug,
+    <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
-    type Error = <T as Transactional<u8>>::Error;
+    type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Read data with the specified prefix
     fn prefix_read<'a>(
@@ -179,7 +186,7 @@ where
     ) -> Result<(), Self::Error> {
         let mut ops = [
             Operation::Write(prefix),
-            Operation::Transfer(data),
+            Operation::TransferInplace(data),
         ];
 
         self.exec(&mut ops)?;

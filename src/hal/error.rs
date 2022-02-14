@@ -4,6 +4,7 @@ pub enum HalError {
     InvalidConfig,
     InvalidSpiMode,
     NoPin,
+    NoDriver,
 
     #[cfg(feature = "hal-cp2130")]
     Cp2130(driver_cp2130::Error),
@@ -13,6 +14,9 @@ pub enum HalError {
 
     #[cfg(feature = "hal-linux")]
     Sysfs(linux_embedded_hal::sysfs_gpio::Error),
+
+    #[cfg(feature = "hal-linux")]
+    Spi(linux_embedded_hal::SPIError),
 }
 
 impl HalError {
@@ -55,5 +59,18 @@ impl From<std::io::Error> for HalError {
 impl From<linux_embedded_hal::sysfs_gpio::Error> for HalError {
     fn from(e: linux_embedded_hal::sysfs_gpio::Error) -> Self {
         Self::Sysfs(e)
+    }
+}
+
+#[cfg(feature = "hal-linux")]
+impl From<linux_embedded_hal::SPIError> for HalError {
+    fn from(e: linux_embedded_hal::SPIError) -> Self {
+        Self::Spi(e)
+    }
+}
+
+impl embedded_hal::spi::Error for HalError {
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
+        embedded_hal::spi::ErrorKind::Other
     }
 }
