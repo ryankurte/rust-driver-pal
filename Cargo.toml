@@ -14,7 +14,6 @@ utils = [ "hal" ]
 hal = [ "toml", "structopt", "serde", "simplelog" ]
 hal-cp2130 = [ "driver-cp2130" ]
 hal-linux = [ "linux-embedded-hal" ]
-# default = [ "mock", "hal", "hal-cp2130", "hal-linux" ]
 default = [ "mock" , "hal" ]
 
 [dependencies]
@@ -37,5 +36,4 @@ optional = true
 [dependencies.driver-cp2130]
 version = "1.0.0-alpha.5"
 optional = true
-
 

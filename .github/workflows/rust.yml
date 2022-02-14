@@ -22,21 +22,19 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             experimental: false
-            args: --features utils,driver-pal/hal-cp2130,driver-pal/hal-linux
+            args: --features utils,hal-cp2130,hal-linux
           - target: armv7-unknown-linux-gnueabihf 
             os: ubuntu-latest
             experimental: true
-            args: --features utils,driver-pal/hal-cp2130,driver-pal/hal-linux
+            args: --features utils,hal-cp2130,hal-linux
           - target: x86_64-apple-darwin
             os: macos-latest
-            output: SX127x-util
             experimental: false
-            args: --no-default-features --features utils,driver-pal/hal-cp2130
+            args: --no-default-features --features utils,hal-cp2130
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            output: SX127x-util.exe
             experimental: true
-            args: --no-default-features --features utils,driver-pal/hal-cp2130    
+            args: --no-default-features --features utils,hal-cp2130
 
     steps:
     - uses: actions/checkout@v2
@@ -63,14 +61,16 @@ jobs:
     
     - name: Install libusb (apt native)
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' }}
-      run: sudo apt install -y libusb-1.0 libusb-dev
+      run: |
+        sudo apt update
+        sudo apt install -y libusb-1.0-0 libusb-1.0-0-dev
 
     - name: Install libusb (apt armv7)
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'armv7-unknown-linux-gnueabihf' }}
       run: |
         sudo dpkg add-architecture armhf
         sudo apt update
-        sudo apt install libusb-1.0:armhf libusb-dev:armhf
+        sudo apt install libusb-1.0-0:armhf libusb-1.0-0-dev:armhf
 
     - name: Install libusb (vcpkg)
       if: ${{ matrix.os == 'windows-latest' }}
