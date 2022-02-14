@@ -51,9 +51,7 @@ impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
     Spi: Transactional<u8>,
-    <Spi as Transactional<u8>>::Error: Debug,
     CsPin: OutputPin,
-    <CsPin as OutputPin>::Error: Debug,
     Delay: DelayUs,
 {
     /// C FFI compatible spi_write function for dependency injection

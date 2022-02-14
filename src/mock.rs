@@ -324,7 +324,6 @@ impl embedded_hal::delay::blocking::DelayUs for Spi {
 }
 
 impl embedded_hal::spi::blocking::TransferInplace<u8> for Spi {
-    type Error = MockError;
 
     fn transfer_inplace<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -354,7 +353,6 @@ impl embedded_hal::spi::blocking::TransferInplace<u8> for Spi {
 }
 
 impl embedded_hal::spi::blocking::Write<u8> for Spi {
-    type Error = MockError;
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -370,7 +368,6 @@ impl embedded_hal::spi::blocking::Write<u8> for Spi {
 }
 
 impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
-    type Error = MockError;
 
     fn exec<'a>(&mut self, operations: &mut [SpiOperation<'a, u8>]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -412,8 +409,11 @@ impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
     }
 }
 
+impl embedded_hal::spi::ErrorType for Spi {
+    type Error = MockError;
+}
+
 impl embedded_hal::digital::blocking::InputPin for Pin {
-    type Error = PinError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -455,7 +455,6 @@ impl embedded_hal::digital::blocking::InputPin for Pin {
 }
 
 impl embedded_hal::digital::blocking::OutputPin for Pin {
-    type Error = PinError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
@@ -481,6 +480,11 @@ impl embedded_hal::digital::blocking::OutputPin for Pin {
         Ok(())
     }
 }
+
+impl embedded_hal::digital::ErrorType for Pin {
+    type Error = PinError;
+}
+
 
 impl embedded_hal::delay::blocking::DelayUs for Delay {
     type Error = DelayError;

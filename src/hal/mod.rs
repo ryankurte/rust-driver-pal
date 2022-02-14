@@ -145,6 +145,7 @@ pub enum HalBase {
 }
 
 /// SPI hal wrapper
+#[non_exhaustive]
 pub enum HalSpi {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::Spidev),
@@ -153,22 +154,34 @@ pub enum HalSpi {
 }
 
 impl embedded_hal::spi::blocking::TransferInplace<u8> for HalSpi {
-    type Error = HalError;
 
     fn transfer_inplace<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
-            HalSpi::Linux(i) => i.transfer(data)?,
+            HalSpi::Linux(i) => i.transfer_inplace(data)?,
             #[cfg(feature = "hal-cp2130")]
-            HalSpi::Cp2130(i) => i.transfer(data)?,
-            _ => todo!()
+            HalSpi::Cp2130(i) => i.transfer_inplace(data)?,
+            _ => return Err(HalError::NoDriver)
+        }
+        Ok(())
+    }
+}
+
+impl embedded_hal::spi::blocking::Transfer<u8> for HalSpi {
+
+    fn transfer<'w>(&mut self, buff: &'w mut [u8], data: &'w [u8]) -> Result<(), Self::Error> {
+        match self {
+            #[cfg(all(feature = "hal-linux", target_os = "linux"))]
+            HalSpi::Linux(i) => i.transfer(buff, data)?,
+            #[cfg(feature = "hal-cp2130")]
+            HalSpi::Cp2130(i) => i.transfer(buff, data)?,
+            _ => return Err(HalError::NoDriver)
         }
         Ok(())
     }
 }
 
 impl embedded_hal::spi::blocking::Write<u8> for HalSpi {
-    type Error = HalError;
 
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         match self {
@@ -176,16 +189,19 @@ impl embedded_hal::spi::blocking::Write<u8> for HalSpi {
             HalSpi::Linux(i) => i.write(data)?,
             #[cfg(feature = "hal-cp2130")]
             HalSpi::Cp2130(i) => i.write(data)?,
-            _ => todo!()
+            _ => return Err(HalError::NoDriver)
         }
         Ok(())
     }
 }
 
+impl embedded_hal::spi::ErrorType for HalSpi {
+    type Error = HalError;
+}
+
 use embedded_hal::spi::blocking::Operation;
 
 impl embedded_hal::spi::blocking::Transactional<u8> for HalSpi {
-    type Error = HalError;
 
     fn exec<'b>(&mut self, operations: &mut [Operation<'b, u8>]) -> Result<(), Self::Error> {
         match self {
@@ -200,6 +216,7 @@ impl embedded_hal::spi::blocking::Transactional<u8> for HalSpi {
 }
 
 /// Input pin hal wrapper
+#[non_exhaustive]
 pub enum HalInputPin {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::SysfsPin),
@@ -209,15 +226,16 @@ pub enum HalInputPin {
 }
 
 impl embedded_hal::digital::blocking::InputPin for HalInputPin {
-    type Error = HalError;
 
     fn is_high(&self) -> Result<bool, Self::Error> {
         let r = match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
             HalInputPin::Linux(i) => i.is_high()?,
+            
             #[cfg(feature = "hal-cp2130")]
             HalInputPin::Cp2130(i) => i.is_high()?,
-            HalInputPin::None => return Err(HalError::NoPin),
+
+            _ => return Err(HalError::NoPin),
         };
 
         Ok(r)
@@ -228,7 +246,12 @@ impl embedded_hal::digital::blocking::InputPin for HalInputPin {
     }
 }
 
+impl embedded_hal::digital::ErrorType for HalInputPin {
+    type Error = HalError;
+}
+
 /// Output pin hal wrapper
+#[non_exhaustive]
 pub enum HalOutputPin {
     #[cfg(all(feature = "hal-linux", target_os = "linux"))]
     Linux(linux_embedded_hal::SysfsPin),
@@ -238,15 +261,16 @@ pub enum HalOutputPin {
 }
 
 impl embedded_hal::digital::blocking::OutputPin for HalOutputPin {
-    type Error = HalError;
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
         match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
             HalOutputPin::Linux(i) => i.set_high()?,
+
             #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.set_high()?,
-            HalOutputPin::None => return Err(HalError::NoPin),
+
+            _ => return Err(HalError::NoPin),
         }
         Ok(())
     }
@@ -255,12 +279,18 @@ impl embedded_hal::digital::blocking::OutputPin for HalOutputPin {
         match self {
             #[cfg(all(feature = "hal-linux", target_os = "linux"))]
             HalOutputPin::Linux(i) => i.set_low()?,
+
             #[cfg(feature = "hal-cp2130")]
             HalOutputPin::Cp2130(i) => i.set_low()?,
-            HalOutputPin::None => return Err(HalError::NoPin),
+
+            _ => return Err(HalError::NoPin),
         }
         Ok(())
     }
+}
+
+impl embedded_hal::digital::ErrorType for HalOutputPin {
+    type Error = HalError;
 }
 
 /// Load a configuration file

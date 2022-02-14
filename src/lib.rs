@@ -134,12 +134,13 @@ pub enum Error<SpiError, PinError, DelayError> {
     Aborted,
 }
 
-impl<I,J,K> embedded_hal::spi::Error for Error< I, J, K >
-    where I: core::fmt::Debug,
-        J: core::fmt::Debug,
-        K: core::fmt::Debug,
+impl<SpiError, PinError, DelayError> embedded_hal::spi::Error for Error<SpiError, PinError, DelayError>
+where 
+    SpiError: core::fmt::Debug,
+    PinError: core::fmt::Debug,
+    DelayError: core::fmt::Debug,
 {
-    fn kind(&self) -> embedded_hal::spi::ErrorKind { todo!() }
+    fn kind(&self) -> embedded_hal::spi::ErrorKind { embedded_hal::spi::ErrorKind::Other }
 }
 
 /// PinState enum used for busy indication
@@ -155,9 +156,9 @@ use embedded_hal::spi::blocking::{Transactional, Operation};
 impl<T> PrefixWrite for T
 where
     T: Transactional<u8>,
-    <T as Transactional<u8>>::Error: core::fmt::Debug,
+    <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
-    type Error = <T as Transactional<u8>>::Error;
+    type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Write data with the specified prefix
     fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
@@ -173,9 +174,9 @@ where
 impl<T> PrefixRead for T
 where
     T: Transactional<u8>,
-    <T as Transactional<u8>>::Error: core::fmt::Debug,
+    <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
-    type Error = <T as Transactional<u8>>::Error;
+    type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Read data with the specified prefix
     fn prefix_read<'a>(
