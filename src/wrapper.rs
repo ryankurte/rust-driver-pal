@@ -4,7 +4,7 @@
 
 use embedded_hal::delay::blocking::DelayUs;
 use embedded_hal::digital::blocking::{InputPin, OutputPin};
-use embedded_hal::spi::blocking::{self as spi, Operation, Transfer, TransferInplace, Write};
+use embedded_hal::spi::blocking::{self as spi, SpiBus, SpiBusWrite};
 
 use crate::{Busy, Error, ManagedChipSelect, PinState, Ready, Reset};
 
@@ -30,7 +30,7 @@ impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> ManagedChipSelect
 impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: Write<u8> + Transfer<u8>,
+    Spi: SpiBusWrite<u8> + SpiBus<u8>,
     CsPin: OutputPin,
 {
     /// Create a new wrapper with the provided chip select pin
@@ -90,17 +90,27 @@ where
     >;
 }
 
-impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> TransferInplace<u8>
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> SpiBus<u8>
     for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::TransferInplace<u8>,
+    Spi: spi::SpiBus<u8>,
     CsPin: OutputPin,
     Delay: DelayUs,
 {
-    fn transfer_inplace<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
+    fn transfer_in_place<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
 
-        self.spi.transfer_inplace(data).map_err(Error::Spi)?;
+        self.spi.transfer_in_place(data).map_err(Error::Spi)?;
+
+        self.cs.set_high().map_err(Error::Pin)?;
+
+        Ok(())
+    }
+
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        self.cs.set_low().map_err(Error::Pin)?;
+
+        self.spi.transfer(read, write).map_err(Error::Spi)?;
 
         self.cs.set_high().map_err(Error::Pin)?;
 
@@ -108,18 +118,31 @@ where
     }
 }
 
-/// `spi::Write` implementation managing the CS pin
-impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::Write<u8>
+/// `spi::Read` implementation managing the CS pin
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::SpiBusFlush
     for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::Write<u8>,
+    Spi: spi::SpiBusFlush,
     CsPin: OutputPin,
     Delay: DelayUs,
 {
-    fn write<'w>(&mut self, data: &'w [u8]) -> Result<(), Self::Error> {
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+/// `spi::Read` implementation managing the CS pin
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::SpiBusRead<u8>
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
+where
+    Spi: spi::SpiBusRead<u8>,
+    CsPin: OutputPin,
+    Delay: DelayUs,
+{
+    fn read<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
 
-        let r = self.spi.write(data).map_err(Error::Spi);
+        let r = self.spi.read(data).map_err(Error::Spi);
 
         self.cs.set_high().map_err(Error::Pin)?;
 
@@ -127,18 +150,18 @@ where
     }
 }
 
-/// `spi::Transactional` implementation managing CS pin
-impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::Transactional<u8>
+/// `spi::Write` implementation managing the CS pin
+impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> spi::SpiBusWrite<u8>
     for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: spi::Transactional<u8>,
+    Spi: spi::SpiBusWrite<u8>,
     CsPin: OutputPin,
     Delay: DelayUs,
 {
-    fn exec<'a>(&mut self, operations: &mut [Operation<'a, u8>]) -> Result<(), Self::Error> {
+    fn write<'w>(&mut self, data: &'w [u8]) -> Result<(), Self::Error> {
         self.cs.set_low().map_err(Error::Pin)?;
 
-        let r = spi::Transactional::exec(&mut self.spi, operations).map_err(Error::Spi);
+        let r = self.spi.write(data).map_err(Error::Spi);
 
         self.cs.set_high().map_err(Error::Pin)?;
 
