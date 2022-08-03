@@ -61,13 +61,12 @@ where
 }
 
 impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> embedded_hal::spi::ErrorType
-    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> 
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
     Spi: embedded_hal::spi::ErrorType,
     CsPin: embedded_hal::digital::ErrorType,
     Delay: DelayUs,
-    {
-
+{
     type Error = Error<
         <Spi as embedded_hal::spi::ErrorType>::Error,
         <CsPin as embedded_hal::digital::ErrorType>::Error,
@@ -76,13 +75,12 @@ where
 }
 
 impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> embedded_hal::digital::ErrorType
-    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> 
+    for Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
     Spi: embedded_hal::spi::ErrorType,
     CsPin: embedded_hal::digital::ErrorType,
     Delay: DelayUs,
-    {
-
+{
     type Error = Error<
         <Spi as embedded_hal::spi::ErrorType>::Error,
         <CsPin as embedded_hal::digital::ErrorType>::Error,
@@ -194,7 +192,7 @@ where
     BusyPin: InputPin,
 {
     type Error = <BusyPin as embedded_hal::digital::ErrorType>::Error;
-    
+
     /// Fetch the busy pin state
     fn get_busy(&mut self) -> Result<PinState, Self::Error> {
         match self.busy.is_high()? {

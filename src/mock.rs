@@ -311,7 +311,6 @@ impl embedded_hal::delay::blocking::DelayUs for Spi {
 }
 
 impl embedded_hal::spi::blocking::SpiBus<u8> for Spi {
-
     fn transfer_in_place<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
@@ -386,7 +385,6 @@ impl embedded_hal::spi::blocking::SpiBusRead<u8> for Spi {
 }
 
 impl embedded_hal::spi::blocking::SpiBusWrite<u8> for Spi {
-
     fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
@@ -405,7 +403,6 @@ impl embedded_hal::spi::ErrorType for Spi {
 }
 
 impl embedded_hal::digital::blocking::InputPin for Pin {
-
     fn is_high(&self) -> Result<bool, Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
@@ -446,7 +443,6 @@ impl embedded_hal::digital::blocking::InputPin for Pin {
 }
 
 impl embedded_hal::digital::blocking::OutputPin for Pin {
-
     fn set_high(&mut self) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
 
@@ -476,7 +472,6 @@ impl embedded_hal::digital::ErrorType for Pin {
     type Error = PinError;
 }
 
-
 impl embedded_hal::delay::blocking::DelayUs for Delay {
     type Error = DelayError;
 
@@ -495,8 +490,8 @@ impl embedded_hal::delay::blocking::DelayUs for Delay {
 
 #[cfg(test)]
 mod test {
-    use std::*;
     use std::vec;
+    use std::*;
 
     use embedded_hal::digital::blocking::*;
     use embedded_hal::spi::blocking::*;

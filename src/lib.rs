@@ -133,13 +133,16 @@ pub enum Error<SpiError, PinError, DelayError> {
     Aborted,
 }
 
-impl<SpiError, PinError, DelayError> embedded_hal::spi::Error for Error<SpiError, PinError, DelayError>
-where 
+impl<SpiError, PinError, DelayError> embedded_hal::spi::Error
+    for Error<SpiError, PinError, DelayError>
+where
     SpiError: core::fmt::Debug,
     PinError: core::fmt::Debug,
     DelayError: core::fmt::Debug,
 {
-    fn kind(&self) -> embedded_hal::spi::ErrorKind { embedded_hal::spi::ErrorKind::Other }
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
+        embedded_hal::spi::ErrorKind::Other
+    }
 }
 
 /// PinState enum used for busy indication
@@ -176,11 +179,7 @@ where
     type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Read data with the specified prefix
-    fn prefix_read<'a>(
-        &mut self,
-        prefix: &[u8],
-        data: &'a mut [u8],
-    ) -> Result<(), Self::Error> {
+    fn prefix_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
         self.write(prefix)?;
         self.transfer_in_place(data)?;
         Ok(())
