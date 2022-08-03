@@ -2,9 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::vec;
 use std::vec::Vec;
 
-use crate::{Busy, Error, PinState, Ready, Reset};
-
-use embedded_hal::spi::blocking::Operation as SpiOperation;
+use crate::{Busy, PinState, Ready, Reset};
 
 #[derive(Clone, Debug)]
 pub struct PinError;
@@ -66,6 +64,7 @@ pub enum MockTransaction {
     Ready(Id, PinState),
     Reset(Id, PinState),
 
+    Read(Id, Vec<u8>),
     Write(Id, Vec<u8>),
     Transfer(Id, Vec<u8>, Vec<u8>),
 
@@ -157,18 +156,6 @@ impl MockTransaction {
 pub enum MockExec {
     SpiWrite(Vec<u8>),
     SpiTransfer(Vec<u8>, Vec<u8>),
-}
-
-impl<'a> From<&SpiOperation<'a, u8>> for MockExec {
-    fn from(t: &SpiOperation<'a, u8>) -> Self {
-        match t {
-            SpiOperation::Write(ref d) => MockExec::SpiWrite(d.to_vec()),
-            SpiOperation::TransferInplace(ref d) => {
-                MockExec::SpiTransfer(d.to_vec(), vec![0u8; d.len()])
-            }
-            _ => todo!(),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -323,9 +310,9 @@ impl embedded_hal::delay::blocking::DelayUs for Spi {
     }
 }
 
-impl embedded_hal::spi::blocking::TransferInplace<u8> for Spi {
+impl embedded_hal::spi::blocking::SpiBus<u8> for Spi {
 
-    fn transfer_inplace<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
+    fn transfer_in_place<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
         let index = i.index;
 
@@ -350,15 +337,26 @@ impl embedded_hal::spi::blocking::TransferInplace<u8> for Spi {
 
         Ok(())
     }
-}
 
-impl embedded_hal::spi::blocking::Write<u8> for Spi {
-
-    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
+        let index = i.index;
+
+        let incoming: Vec<_> = write.into();
+
+        // Copy read data from expectation
+        match &i.expected.get(index) {
+            Some(MockTransaction::Transfer(_id, _outgoing, incoming)) => {
+                if incoming.len() == write.len() {
+                    read.copy_from_slice(&incoming);
+                }
+            }
+            _ => (),
+        };
 
         // Save actual call
-        i.actual.push(MockTransaction::Write(self.id, data.into()));
+        i.actual
+            .push(MockTransaction::Transfer(self.id, incoming, write.into()));
 
         // Update expectation index
         i.index += 1;
@@ -367,40 +365,33 @@ impl embedded_hal::spi::blocking::Write<u8> for Spi {
     }
 }
 
-impl embedded_hal::spi::blocking::Transactional<u8> for Spi {
+impl embedded_hal::spi::blocking::SpiBusFlush for Spi {
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
 
-    fn exec<'a>(&mut self, operations: &mut [SpiOperation<'a, u8>]) -> Result<(), Self::Error> {
+impl embedded_hal::spi::blocking::SpiBusRead<u8> for Spi {
+    fn read<'w>(&mut self, data: &'w mut [u8]) -> Result<(), Self::Error> {
         let mut i = self.inner.lock().unwrap();
-        let index = i.index;
 
-        // Save actual calls
-        let t: Vec<MockExec> = operations
-            .as_mut()
-            .iter()
-            .map(|ref v| MockExec::from(*v))
-            .collect();
-        i.actual.push(MockTransaction::SpiExec(self.id, t));
+        // Save actual call
+        i.actual.push(MockTransaction::Read(self.id, data.into()));
 
-        let transactions = operations.as_mut();
+        // Update expectation index
+        i.index += 1;
 
-        // Load expected reads
-        if let MockTransaction::SpiExec(_id, e) = &i.expected[index] {
-            for i in 0..transactions.len() {
-                let t = &mut transactions[i];
-                let x = e.get(i);
+        Ok(())
+    }
+}
 
-                match (t, x) {
-                    (
-                        SpiOperation::TransferInplace(ref mut t_in),
-                        Some(MockExec::SpiTransfer(_x_out, x_in)),
-                    ) => t_in.copy_from_slice(&x_in),
-                    (SpiOperation::Write(ref _t_out), Some(MockExec::SpiWrite(ref _x_out))) => {
-                        //assert_eq!(t_out, x_out);
-                    }
-                    _ => (),
-                }
-            }
-        }
+impl embedded_hal::spi::blocking::SpiBusWrite<u8> for Spi {
+
+    fn write<'w>(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        let mut i = self.inner.lock().unwrap();
+
+        // Save actual call
+        i.actual.push(MockTransaction::Write(self.id, data.into()));
 
         // Update expectation index
         i.index += 1;
@@ -505,9 +496,8 @@ impl embedded_hal::delay::blocking::DelayUs for Delay {
 #[cfg(test)]
 mod test {
     use std::*;
-    use std::{panic, vec};
+    use std::vec;
 
-    use embedded_hal::delay::blocking::*;
     use embedded_hal::digital::blocking::*;
     use embedded_hal::spi::blocking::*;
 
@@ -631,7 +621,7 @@ mod test {
         )]);
 
         let mut d = outgoing.clone();
-        s.transfer_inplace(&mut d).expect("read failure");
+        s.transfer_in_place(&mut d).expect("read failure");
 
         m.finalise();
         assert_eq!(&incoming, &d);
