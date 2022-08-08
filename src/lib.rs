@@ -52,7 +52,8 @@ pub trait ManagedChipSelect {}
 pub trait Hal<E>:
     PrefixWrite<Error = E>
     + PrefixRead<Error = E>
-    + embedded_hal::spi::blocking::Transactional<u8, Error = E>
+    + embedded_hal::spi::blocking::SpiBusRead<u8, Error = E>
+    + embedded_hal::spi::blocking::SpiBusWrite<u8, Error = E>
     + Busy<Error = E>
     + Ready<Error = E>
     + Reset<Error = E>
@@ -64,7 +65,9 @@ pub trait Hal<E>:
 impl<T, E> Hal<E> for T where
     T: PrefixWrite<Error = E>
         + PrefixRead<Error = E>
-        + embedded_hal::spi::blocking::Transactional<u8, Error = E>
+        + embedded_hal::spi::blocking::SpiBusRead<u8, Error = E>
+        + embedded_hal::spi::blocking::SpiBusWrite<u8, Error = E>
+        //+ embedded_hal::spi::blocking::Transactional<u8, Error = E>
         + Busy<Error = E>
         + Ready<Error = E>
         + Reset<Error = E>
@@ -88,10 +91,6 @@ pub trait PrefixWrite {
     /// Write writes the prefix buffer then writes the output buffer
     fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error>;
 }
-
-/// Transaction enum defines possible SPI transactions
-/// Re-exported from embedded-hal
-pub type Transaction<'a> = embedded_hal::spi::blocking::Operation<'a, u8>;
 
 /// Chip Select trait for peripherals supporting manual chip select
 pub trait ChipSelect {
@@ -134,13 +133,16 @@ pub enum Error<SpiError, PinError, DelayError> {
     Aborted,
 }
 
-impl<SpiError, PinError, DelayError> embedded_hal::spi::Error for Error<SpiError, PinError, DelayError>
-where 
+impl<SpiError, PinError, DelayError> embedded_hal::spi::Error
+    for Error<SpiError, PinError, DelayError>
+where
     SpiError: core::fmt::Debug,
     PinError: core::fmt::Debug,
     DelayError: core::fmt::Debug,
 {
-    fn kind(&self) -> embedded_hal::spi::ErrorKind { embedded_hal::spi::ErrorKind::Other }
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
+        embedded_hal::spi::ErrorKind::Other
+    }
 }
 
 /// PinState enum used for busy indication
@@ -150,22 +152,20 @@ pub enum PinState {
     High,
 }
 
-use embedded_hal::spi::blocking::{Transactional, Operation};
+use embedded_hal::spi::blocking::{SpiBus, SpiBusRead, SpiBusWrite};
 
 /// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
 impl<T> PrefixWrite for T
 where
-    T: Transactional<u8>,
+    T: SpiBusRead<u8> + SpiBusWrite<u8>,
     <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
     type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Write data with the specified prefix
     fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
-        let mut ops = [Operation::Write(prefix), Operation::Write(data)];
-
-        self.exec(&mut ops)?;
-
+        self.write(prefix)?;
+        self.write(data)?;
         Ok(())
     }
 }
@@ -173,24 +173,15 @@ where
 /// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
 impl<T> PrefixRead for T
 where
-    T: Transactional<u8>,
+    T: SpiBusWrite<u8> + SpiBus<u8>,
     <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
     type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Read data with the specified prefix
-    fn prefix_read<'a>(
-        &mut self,
-        prefix: &[u8],
-        data: &'a mut [u8],
-    ) -> Result<(), Self::Error> {
-        let mut ops = [
-            Operation::Write(prefix),
-            Operation::TransferInplace(data),
-        ];
-
-        self.exec(&mut ops)?;
-
+    fn prefix_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
+        self.write(prefix)?;
+        self.transfer_in_place(data)?;
         Ok(())
     }
 }

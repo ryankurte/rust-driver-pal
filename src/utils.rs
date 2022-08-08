@@ -1,4 +1,3 @@
-
 use std::fs::read_to_string;
 use std::string::{String, ToString};
 
@@ -9,7 +8,7 @@ pub use simplelog::{LevelFilter, TermLogger};
 
 pub use embedded_hal::digital::v2::{InputPin, OutputPin};
 pub use linux_embedded_hal::sysfs_gpio::{Direction, Error as PinError};
-pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiModeFlags};
+pub use linux_embedded_hal::{spidev, spidev::SpiModeFlags, Delay, Pin as Pindev, Spidev};
 
 use crate::wrapper::Wrapper;
 
@@ -53,7 +52,9 @@ pub struct DeviceConfig {
 
 impl DeviceConfig {
     /// Load without busy or ready pins
-    pub fn load_base(&self) -> Wrapper<Spidev, std::io::Error, Pindev, (), (), Pindev, PinError, Delay> {
+    pub fn load_base(
+        &self,
+    ) -> Wrapper<Spidev, std::io::Error, Pindev, (), (), Pindev, PinError, Delay> {
         // Load SPI peripheral
         let spi = load_spi(&self.spi, self.baud, SpiModeFlags::SPI_MODE_0);
 
