@@ -16,6 +16,9 @@ pub enum HalError {
     Sysfs(linux_embedded_hal::sysfs_gpio::Error),
 
     #[cfg(feature = "hal-linux")]
+    SysfsPin(linux_embedded_hal::SysfsPinError),
+
+    #[cfg(feature = "hal-linux")]
     Spi(linux_embedded_hal::SPIError),
 }
 
@@ -56,6 +59,13 @@ impl From<std::io::Error> for HalError {
 }
 
 #[cfg(feature = "hal-linux")]
+impl From<linux_embedded_hal::SysfsPinError> for HalError {
+    fn from(e: linux_embedded_hal::SysfsPinError) -> Self {
+        Self::SysfsPin(e)
+    }
+}
+
+#[cfg(feature = "hal-linux")]
 impl From<linux_embedded_hal::sysfs_gpio::Error> for HalError {
     fn from(e: linux_embedded_hal::sysfs_gpio::Error) -> Self {
         Self::Sysfs(e)
@@ -72,5 +82,11 @@ impl From<linux_embedded_hal::SPIError> for HalError {
 impl embedded_hal::spi::Error for HalError {
     fn kind(&self) -> embedded_hal::spi::ErrorKind {
         embedded_hal::spi::ErrorKind::Other
+    }
+}
+
+impl embedded_hal::digital::Error for HalError {
+    fn kind(&self) -> embedded_hal::digital::ErrorKind {
+        embedded_hal::digital::ErrorKind::Other
     }
 }

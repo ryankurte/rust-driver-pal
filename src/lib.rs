@@ -52,11 +52,11 @@ pub trait ManagedChipSelect {}
 pub trait Hal<E>:
     PrefixWrite<Error = E>
     + PrefixRead<Error = E>
-    + embedded_hal::spi::blocking::Transactional<u8, Error = E>
+    + embedded_hal::spi::SpiDevice<u8, Error = E>
     + Busy<Error = E>
     + Ready<Error = E>
     + Reset<Error = E>
-    + embedded_hal::delay::blocking::DelayUs
+    + embedded_hal::delay::DelayUs
 {
 }
 
@@ -64,11 +64,11 @@ pub trait Hal<E>:
 impl<T, E> Hal<E> for T where
     T: PrefixWrite<Error = E>
         + PrefixRead<Error = E>
-        + embedded_hal::spi::blocking::Transactional<u8, Error = E>
+        + embedded_hal::spi::SpiDevice<u8, Error = E>
         + Busy<Error = E>
         + Ready<Error = E>
         + Reset<Error = E>
-        + embedded_hal::delay::blocking::DelayUs
+        + embedded_hal::delay::DelayUs
 {
 }
 
@@ -91,7 +91,7 @@ pub trait PrefixWrite {
 
 /// Transaction enum defines possible SPI transactions
 /// Re-exported from embedded-hal
-pub type Transaction<'a> = embedded_hal::spi::blocking::Operation<'a, u8>;
+pub type Transaction<'a> = embedded_hal::spi::Operation<'a, u8>;
 
 /// Chip Select trait for peripherals supporting manual chip select
 pub trait ChipSelect {
@@ -127,20 +127,30 @@ pub trait Ready {
 
 /// Error type combining SPI and Pin errors for utility
 #[derive(Debug, Clone, PartialEq)]
-pub enum Error<SpiError, PinError, DelayError> {
+pub enum Error<SpiError, PinError> {
     Spi(SpiError),
     Pin(PinError),
-    Delay(DelayError),
     Aborted,
 }
 
-impl<SpiError, PinError, DelayError> embedded_hal::spi::Error for Error<SpiError, PinError, DelayError>
-where 
+impl<SpiError, PinError> embedded_hal::spi::Error for Error<SpiError, PinError>
+where
     SpiError: core::fmt::Debug,
     PinError: core::fmt::Debug,
-    DelayError: core::fmt::Debug,
 {
-    fn kind(&self) -> embedded_hal::spi::ErrorKind { embedded_hal::spi::ErrorKind::Other }
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
+        embedded_hal::spi::ErrorKind::Other
+    }
+}
+
+impl<SpiError, PinError> embedded_hal::digital::Error for Error<SpiError, PinError>
+where
+    SpiError: core::fmt::Debug,
+    PinError: core::fmt::Debug,
+{
+    fn kind(&self) -> embedded_hal::digital::ErrorKind {
+        embedded_hal::digital::ErrorKind::Other
+    }
 }
 
 /// PinState enum used for busy indication
@@ -150,12 +160,12 @@ pub enum PinState {
     High,
 }
 
-use embedded_hal::spi::blocking::{Transactional, Operation};
+use embedded_hal::spi::{Operation, SpiDevice};
 
-/// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+/// Automatic `driver_pal::PrefixWrite` implementation for objects implementing `embedded_hal::spi::SpiDevice`.
 impl<T> PrefixWrite for T
 where
-    T: Transactional<u8>,
+    T: SpiDevice<u8>,
     <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
     type Error = <T as embedded_hal::spi::ErrorType>::Error;
@@ -164,32 +174,25 @@ where
     fn prefix_write(&mut self, prefix: &[u8], data: &[u8]) -> Result<(), Self::Error> {
         let mut ops = [Operation::Write(prefix), Operation::Write(data)];
 
-        self.exec(&mut ops)?;
+        self.transaction(&mut ops)?;
 
         Ok(())
     }
 }
 
-/// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::blocking::spi::Transactional`.
+/// Automatic `driver_pal::PrefixRead` implementation for objects implementing `embedded_hal::spi::SpiDevice`.
 impl<T> PrefixRead for T
 where
-    T: Transactional<u8>,
+    T: SpiDevice<u8>,
     <T as embedded_hal::spi::ErrorType>::Error: core::fmt::Debug,
 {
     type Error = <T as embedded_hal::spi::ErrorType>::Error;
 
     /// Read data with the specified prefix
-    fn prefix_read<'a>(
-        &mut self,
-        prefix: &[u8],
-        data: &'a mut [u8],
-    ) -> Result<(), Self::Error> {
-        let mut ops = [
-            Operation::Write(prefix),
-            Operation::TransferInplace(data),
-        ];
+    fn prefix_read<'a>(&mut self, prefix: &[u8], data: &'a mut [u8]) -> Result<(), Self::Error> {
+        let mut ops = [Operation::Write(prefix), Operation::TransferInPlace(data)];
 
-        self.exec(&mut ops)?;
+        self.transaction(&mut ops)?;
 
         Ok(())
     }

@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use std::string::{String, ToString};
 
 pub use serde::{de::DeserializeOwned, Deserialize};
-pub use structopt::StructOpt;
+pub use clap::Parser;
 
 pub use simplelog::{LevelFilter, TermLogger};
 
@@ -14,10 +14,10 @@ pub use linux_embedded_hal::{spidev, Delay, Pin as Pindev, Spidev, spidev::SpiMo
 use crate::wrapper::Wrapper;
 
 /// Generic device configuration structure for SPI drivers
-#[derive(Debug, StructOpt, Deserialize)]
+#[derive(Debug, Parser, Deserialize)]
 pub struct DeviceConfig {
     /// Spi device
-    #[structopt(
+    #[clap(
         short = "d",
         long = "spi-dev",
         default_value = "/dev/spidev0.0",
@@ -26,7 +26,7 @@ pub struct DeviceConfig {
     spi: String,
 
     /// Baud rate setting
-    #[structopt(
+    #[clap(
         short = "b",
         long = "spi-baud",
         default_value = "1000000",
@@ -35,19 +35,19 @@ pub struct DeviceConfig {
     baud: u32,
 
     /// Chip Select (output) pin
-    #[structopt(long = "cs-pin", default_value = "16", env = "CS_PIN")]
+    #[clap(long = "cs-pin", default_value = "16", env = "CS_PIN")]
     chip_select: u64,
 
     /// Reset (output) pin
-    #[structopt(long = "reset-pin", default_value = "17", env = "RESET_PIN")]
+    #[clap(long = "reset-pin", default_value = "17", env = "RESET_PIN")]
     reset: u64,
 
     /// Busy (input) pin
-    #[structopt(long = "busy-pin", env = "BUSY_PIN")]
+    #[clap(long = "busy-pin", env = "BUSY_PIN")]
     busy: Option<u64>,
 
     /// Ready (input) pin
-    #[structopt(long = "ready-pin")]
+    #[clap(long = "ready-pin")]
     ready: Option<u64>,
 }
 
@@ -129,9 +129,9 @@ impl DeviceConfig {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct LogConfig {
-    #[structopt(long = "log-level", default_value = "info")]
+    #[clap(long = "log-level", default_value = "info")]
     /// Enable verbose logging
     level: LevelFilter,
 }

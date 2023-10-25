@@ -2,11 +2,9 @@
 //! This module provides mechanisms to convert an abstract `Wrapper` object to and from c void pointers,
 //! as well as C ffi compatible spi_read and spi_write functions using these context pointers.
 
-use core::fmt::Debug;
-
-use embedded_hal::delay::blocking::DelayUs;
-use embedded_hal::digital::blocking::OutputPin;
-use embedded_hal::spi::blocking::Transactional;
+use embedded_hal::delay::DelayUs;
+use embedded_hal::digital::OutputPin;
+use embedded_hal::spi::SpiDevice;
 
 use crate::wrapper::Wrapper;
 use crate::{PrefixRead, PrefixWrite};
@@ -50,7 +48,7 @@ impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay> Cursed
 impl<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
     Wrapper<Spi, CsPin, BusyPin, ReadyPin, ResetPin, Delay>
 where
-    Spi: Transactional<u8>,
+    Spi: SpiDevice<u8>,
     CsPin: OutputPin,
     Delay: DelayUs,
 {
